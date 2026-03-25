@@ -71,22 +71,22 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-red-50">
       <div className="w-full max-w-md mx-auto p-8">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#E8553A] mb-6">
             <Workflow className="h-9 w-9 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">PipeFlow</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Sonti</h1>
           <p className="text-gray-500">
-            A better way to manage your contacts, deals, and calendar
+            Smart CRM for modern teams
           </p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           {isConnecting ? (
             <div className="flex flex-col items-center py-4">
-              <Loader2 className="h-8 w-8 text-blue-600 animate-spin mb-3" />
+              <Loader2 className="h-8 w-8 text-[#E8553A] animate-spin mb-3" />
               <p className="text-sm text-gray-500">Connecting your account...</p>
             </div>
           ) : (
@@ -153,7 +153,7 @@ function LoginContent() {
               </Tabs>
 
               <p className="text-xs text-gray-400 text-center mt-6">
-                Your data stays in GoHighLevel. PipeFlow provides a better interface.
+                Your data stays in GoHighLevel. Sonti provides a better interface.
               </p>
             </>
           )}
@@ -167,8 +167,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-          <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-red-50">
+          <Loader2 className="h-8 w-8 text-[#E8553A] animate-spin" />
         </div>
       }
     >

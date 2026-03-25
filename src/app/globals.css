@@ -14,17 +14,17 @@
   --bg-card: #ffffff;
   --bg-sidebar: #ffffff;
   --bg-hover: #f3f4f6;
-  --bg-active: #eff6ff;
+  --bg-active: #fef2f0;
   --border-primary: #e5e7eb;
   --border-secondary: #f3f4f6;
   --text-primary: #111827;
   --text-secondary: #4b5563;
   --text-tertiary: #9ca3af;
   --text-inverted: #ffffff;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-light: #dbeafe;
-  --accent-lighter: #eff6ff;
+  --accent: #E8553A;
+  --accent-hover: #D4442B;
+  --accent-light: #fde8e4;
+  --accent-lighter: #fef2f0;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --scrollbar-thumb: #d1d5db;
@@ -38,17 +38,17 @@
   --bg-card: #1e293b;
   --bg-sidebar: #0f172a;
   --bg-hover: #334155;
-  --bg-active: #1e3a5f;
+  --bg-active: #3d1f18;
   --border-primary: #334155;
   --border-secondary: #1e293b;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-tertiary: #64748b;
   --text-inverted: #0f172a;
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
-  --accent-light: #1e3a5f;
-  --accent-lighter: #172554;
+  --accent: #E8553A;
+  --accent-hover: #f0735c;
+  --accent-light: #3d1f18;
+  --accent-lighter: #2a1510;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
   --scrollbar-thumb: #475569;
@@ -205,17 +205,17 @@ main {
 /* Checkbox styling */
 input[type="checkbox"] {
   cursor: pointer;
-  accent-color: #2563eb;
+  accent-color: #E8553A;
 }
 
 /* Selection highlight */
 ::selection {
-  background-color: #dbeafe;
-  color: #1e40af;
+  background-color: #fde8e4;
+  color: #9a2c1a;
 }
 .dark ::selection {
-  background-color: #1e3a5f;
-  color: #93c5fd;
+  background-color: #3d1f18;
+  color: #f0735c;
 }
 
 /* Keyboard shortcut hint styling */

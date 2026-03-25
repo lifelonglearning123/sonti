@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "PipeFlow — CRM Made Simple",
-  description: "A better way to manage your contacts, deals, and calendar",
+  title: "Sonti — Smart CRM for Modern Teams",
+  description: "Smart CRM for modern teams",
 };
 
 export default function RootLayout({

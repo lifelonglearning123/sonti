@@ -366,9 +366,9 @@ export function ContactTable({
                   onClick={() => {
                     // Track recently viewed
                     try {
-                      const recent = JSON.parse(localStorage.getItem("pipeflow-recent-contacts") || "[]");
+                      const recent = JSON.parse(localStorage.getItem("sonti-recent-contacts") || "[]");
                       const updated = [contact.id, ...recent.filter((id: string) => id !== contact.id)].slice(0, 5);
-                      localStorage.setItem("pipeflow-recent-contacts", JSON.stringify(updated));
+                      localStorage.setItem("sonti-recent-contacts", JSON.stringify(updated));
                     } catch {}
                     router.push(`/contacts/${contact.id}`);
                   }}

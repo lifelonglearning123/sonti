@@ -45,7 +45,7 @@ export default function ContactsPage() {
   // Load recently viewed contacts
   useEffect(() => {
     try {
-      const recent = JSON.parse(localStorage.getItem("pipeflow-recent-contacts") || "[]");
+      const recent = JSON.parse(localStorage.getItem("sonti-recent-contacts") || "[]");
       setRecentContactIds(recent);
     } catch {}
   }, []);

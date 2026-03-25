@@ -163,11 +163,11 @@ export default function SettingsPage() {
         </div>
         <CardContent className="p-5 space-y-3">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 shadow-sm">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-[#E8553A] to-[#D4442B] shadow-sm">
               <Workflow className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900">PipeFlow</p>
+              <p className="text-sm font-semibold text-gray-900">Sonti</p>
               <p className="text-xs text-gray-500">Version 0.1.0</p>
             </div>
           </div>

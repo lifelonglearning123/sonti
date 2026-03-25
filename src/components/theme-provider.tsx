@@ -33,7 +33,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Initialize from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem("pipeflow-theme") as Theme | null;
+    const stored = localStorage.getItem("sonti-theme") as Theme | null;
     if (stored && ["light", "dark", "system"].includes(stored)) {
       setThemeState(stored);
     }
@@ -70,7 +70,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem("pipeflow-theme", newTheme);
+    localStorage.setItem("sonti-theme", newTheme);
   }, []);
 
   const toggleTheme = useCallback(() => {

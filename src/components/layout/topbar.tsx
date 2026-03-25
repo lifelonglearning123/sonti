@@ -88,7 +88,7 @@ export function Topbar() {
         {/* Notification bell */}
         <button className="relative flex items-center justify-center h-9 w-9 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
           <Bell className="h-[18px] w-[18px]" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-blue-600 ring-2 ring-white dark:ring-[#0f172a]" />
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#E8553A] ring-2 ring-white dark:ring-[#0f172a]" />
         </button>
 
         {/* User Menu */}

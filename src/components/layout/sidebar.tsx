@@ -54,7 +54,7 @@ export function Sidebar() {
             collapsed ? "justify-center" : "gap-3"
           )}
         >
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 shadow-sm shadow-blue-600/25">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#E8553A] to-[#D4442B] shadow-sm shadow-[#E8553A]/25">
             <Workflow className="h-5 w-5 text-white" />
           </div>
           <span
@@ -65,7 +65,7 @@ export function Sidebar() {
                 : "opacity-100"
             )}
           >
-            PipeFlow
+            Sonti
           </span>
         </div>
 
