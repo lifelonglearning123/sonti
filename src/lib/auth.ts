@@ -55,11 +55,16 @@ export const authConfig: NextAuthConfig = {
       return token;
     },
     async session({ session, token }) {
-      session.accessToken = token.accessToken as string | null;
-      session.locationId = token.locationId as string | null;
-      session.role = token.role as string;
-      session.userId = token.userId as string;
-      session.error = token.error as string | undefined;
+      (session as any).accessToken = token.accessToken;
+      (session as any).locationId = token.locationId;
+      (session as any).role = token.role;
+      (session as any).userId = token.userId;
+      (session as any).error = token.error;
+      // Also put role on user object for client-side access
+      if (session.user) {
+        (session.user as any).role = token.role;
+        (session.user as any).userId = token.userId;
+      }
       return session;
     },
   },

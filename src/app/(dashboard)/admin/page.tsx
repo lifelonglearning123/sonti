@@ -48,7 +48,7 @@ export default function AdminPage() {
   const [form, setForm] = useState<UserFormData>(emptyForm);
   const [showToken, setShowToken] = useState(false);
 
-  if (session?.role !== "admin") {
+  if ((session as any)?.role !== "admin" && (session?.user as any)?.role !== "admin") {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center">

@@ -36,7 +36,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const { data: session } = useSession();
-  const isAdmin = session?.role === "admin";
+  const isAdmin = (session as any)?.role === "admin" || (session?.user as any)?.role === "admin";
 
   const isItemActive = (item: (typeof navItems)[0]) => {
     return pathname.startsWith(item.href);
