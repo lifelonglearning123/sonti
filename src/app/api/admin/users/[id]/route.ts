@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { userQueries } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { NextRequest } from "next/server";
 
@@ -15,20 +15,19 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  const user = await prisma.user.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      username: true,
-      role: true,
-      ghlLocationId: true,
-      ghlAccessToken: true,
-      createdAt: true,
+  const user = userQueries.findById(id);
+  if (!user) return Response.json({ error: "User not found" }, { status: 404 });
+
+  return Response.json({
+    user: {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      ghlLocationId: user.ghlLocationId,
+      ghlAccessToken: user.ghlAccessToken,
+      createdAt: user.createdAt,
     },
   });
-
-  if (!user) return Response.json({ error: "User not found" }, { status: 404 });
-  return Response.json({ user });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -45,13 +44,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.ghlLocationId !== undefined) data.ghlLocationId = body.ghlLocationId || null;
   if (body.ghlAccessToken !== undefined) data.ghlAccessToken = body.ghlAccessToken || null;
 
-  const user = await prisma.user.update({
-    where: { id },
-    data,
-    select: { id: true, username: true, role: true },
-  });
-
-  return Response.json({ user });
+  const user = userQueries.update(id, data);
+  return Response.json({ user: { id: user.id, username: user.username, role: user.role } });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -59,14 +53,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-
-  // Prevent deleting the last admin
-  const adminCount = await prisma.user.count({ where: { role: "admin" } });
-  const user = await prisma.user.findUnique({ where: { id } });
+  const adminCount = userQueries.countByRole("admin");
+  const user = userQueries.findById(id);
   if (user?.role === "admin" && adminCount <= 1) {
     return Response.json({ error: "Cannot delete the last admin user" }, { status: 400 });
   }
 
-  await prisma.user.delete({ where: { id } });
+  userQueries.delete(id);
   return Response.json({ success: true });
 }

@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
+import { userQueries } from "@/lib/db";
 
 export const authConfig: NextAuthConfig = {
   providers: [
@@ -20,10 +20,7 @@ export const authConfig: NextAuthConfig = {
         if (!username || !password) return null;
 
         try {
-          const user = await prisma.user.findUnique({
-            where: { username },
-          });
-
+          const user = userQueries.findByUsername(username);
           if (!user) return null;
 
           const valid = await bcrypt.compare(password, user.passwordHash);
@@ -38,7 +35,7 @@ export const authConfig: NextAuthConfig = {
             locationId: user.ghlLocationId || null,
           };
         } catch (error) {
-          console.error("Auth error:", error);
+          console.error("[Auth] Error:", error);
           return null;
         }
       },
@@ -55,13 +52,11 @@ export const authConfig: NextAuthConfig = {
       return token;
     },
     async session({ session, token }) {
-      // Top-level fields for server-side (GHL proxy)
       (session as any).accessToken = token.accessToken;
       (session as any).locationId = token.locationId;
       (session as any).role = token.role;
       (session as any).userId = token.userId;
       (session as any).error = token.error;
-      // Fields on user object for client-side useSession()
       session.user = {
         ...session.user,
         role: token.role as string,
