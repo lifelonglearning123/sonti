@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
 import {
   Users,
   MessageSquare,
@@ -14,7 +13,6 @@ import {
   ChevronRight,
   Workflow,
   LayoutDashboard,
-  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -35,8 +33,6 @@ const navItems = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const isAdmin = (session?.user as any)?.role === "admin";
 
   const isItemActive = (item: (typeof navItems)[0]) => {
     return pathname.startsWith(item.href);
@@ -136,53 +132,6 @@ export function Sidebar() {
 
         {/* Bottom */}
         <div className="px-3 py-4 border-t border-gray-100 dark:border-gray-800 space-y-1">
-          {/* Admin link - only visible to admins */}
-          {isAdmin && (() => {
-            const isAdminActive = pathname.startsWith("/admin");
-            const adminLink = (
-              <Link
-                href="/admin"
-                className={cn(
-                  "group relative flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                  isAdminActive
-                    ? "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 shadow-sm shadow-amber-100/50 dark:shadow-none"
-                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200",
-                  collapsed && "justify-center px-0"
-                )}
-              >
-                {isAdminActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-amber-600 dark:bg-amber-500 rounded-r-full" />
-                )}
-                <Shield
-                  className={cn(
-                    "h-5 w-5 shrink-0 transition-colors duration-200",
-                    isAdminActive
-                      ? "text-amber-700 dark:text-amber-400"
-                      : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "transition-all duration-300",
-                    collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-                  )}
-                >
-                  Admin
-                </span>
-              </Link>
-            );
-
-            if (collapsed) {
-              return (
-                <Tooltip>
-                  <TooltipTrigger asChild>{adminLink}</TooltipTrigger>
-                  <TooltipContent side="right">Admin</TooltipContent>
-                </Tooltip>
-              );
-            }
-            return adminLink;
-          })()}
-
           {(() => {
             const isSettingsActive = pathname.startsWith("/settings");
             const settingsLink = (

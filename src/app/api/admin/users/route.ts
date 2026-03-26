@@ -4,7 +4,9 @@ import bcrypt from "bcryptjs";
 
 async function requireAdmin() {
   const session = await auth();
-  if (!session?.role || session.role !== "admin") {
+  console.log("[Admin API] Session:", JSON.stringify(session));
+  const role = (session as any)?.role || (session?.user as any)?.role;
+  if (role !== "admin") {
     return null;
   }
   return session;
