@@ -161,8 +161,8 @@ export function MessageThread({ conversation, messages, isLoading, onBack, onTog
       });
       setNewMessage("");
       setEmailSubject("");
-    } catch (err) {
-      toast.error("Failed to send message");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send message");
     }
   };
 

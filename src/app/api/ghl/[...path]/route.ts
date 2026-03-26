@@ -55,8 +55,10 @@ async function proxyToGHL(req: NextRequest) {
     const response = await fetch(url.toString(), fetchOptions);
     const data = await response.text();
 
+    console.log(`[GHL Proxy] ${req.method} ${url.pathname} -> ${response.status}`);
+
     if (!response.ok) {
-      console.log(`[GHL Proxy] ${req.method} ${url.toString()} -> ${response.status}: ${data.substring(0, 200)}`);
+      console.log(`[GHL Proxy] Error body: ${data.substring(0, 500)}`);
     }
 
     return new Response(data, {
@@ -64,6 +66,7 @@ async function proxyToGHL(req: NextRequest) {
       headers: { "Content-Type": response.headers.get("Content-Type") || "application/json" },
     });
   } catch (error) {
+    console.log(`[GHL Proxy] ${req.method} ${url.pathname} -> FETCH ERROR:`, error);
     return Response.json({ error: "Failed to proxy request" }, { status: 500 });
   }
 }

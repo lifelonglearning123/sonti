@@ -43,14 +43,14 @@ interface ContactContextPanelProps {
 }
 
 const TAG_COLORS = [
-  "bg-blue-100 text-blue-700",
-  "bg-green-100 text-green-700",
-  "bg-purple-100 text-purple-700",
-  "bg-amber-100 text-amber-700",
-  "bg-pink-100 text-pink-700",
-  "bg-cyan-100 text-cyan-700",
-  "bg-red-100 text-red-700",
-  "bg-indigo-100 text-indigo-700",
+  "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
+  "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
+  "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300",
+  "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+  "bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300",
+  "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300",
+  "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+  "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300",
 ];
 
 function tagColor(tag: string) {
@@ -99,7 +99,7 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
 
   if (!contact) {
     return (
-      <div className="flex items-center justify-center h-full text-sm text-gray-400">
+      <div className="flex items-center justify-center h-full text-sm text-gray-400 dark:text-gray-500">
         Contact not found
       </div>
     );
@@ -113,12 +113,12 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
         {/* Contact header */}
         <div className="text-center">
           <Link href={`/contacts/${contactId}`} className="inline-block group">
-            <Avatar className="h-14 w-14 mx-auto group-hover:ring-2 group-hover:ring-blue-300 transition-all">
-              <AvatarFallback className="text-lg bg-blue-100 text-blue-700">
+            <Avatar className="h-14 w-14 mx-auto group-hover:ring-2 group-hover:ring-blue-300 dark:group-hover:ring-blue-700 transition-all">
+              <AvatarFallback className="text-lg bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
                 {getInitials(name)}
               </AvatarFallback>
             </Avatar>
-            <h3 className="mt-2 text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+            <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               {name}
             </h3>
           </Link>
@@ -132,30 +132,30 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
         </div>
 
         {/* Contact info */}
-        <div className="space-y-2 bg-gray-50 rounded-lg p-3">
+        <div className="space-y-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
           {contact.email && (
             <div className="flex items-center gap-2 text-xs">
-              <Mail className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-              <span className="text-gray-700 truncate">{contact.email}</span>
+              <Mail className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
+              <span className="text-gray-700 dark:text-gray-300 truncate">{contact.email}</span>
             </div>
           )}
           {contact.phone && (
             <div className="flex items-center gap-2 text-xs">
-              <Phone className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-              <span className="text-gray-700">{contact.phone}</span>
+              <Phone className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
+              <span className="text-gray-700 dark:text-gray-300">{contact.phone}</span>
             </div>
           )}
           {contact.companyName && (
             <div className="flex items-center gap-2 text-xs">
-              <Building2 className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-              <span className="text-gray-700">{contact.companyName}</span>
+              <Building2 className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
+              <span className="text-gray-700 dark:text-gray-300">{contact.companyName}</span>
             </div>
           )}
           {contact.source && (
             <div className="flex items-center gap-2 text-xs">
-              <Globe className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-              <span className="text-gray-500">Source:</span>
-              <span className="text-gray-700">{contact.source}</span>
+              <Globe className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
+              <span className="text-gray-500 dark:text-gray-400">Source:</span>
+              <span className="text-gray-700 dark:text-gray-300">{contact.source}</span>
             </div>
           )}
         </div>
@@ -166,13 +166,13 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
         <div>
           <button
             onClick={() => setShowTags(!showTags)}
-            className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 uppercase tracking-wider"
+            className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
           >
             <div className="flex items-center gap-1.5">
               <Tag className="h-3 w-3" />
               Tags
               {(contact.tags?.length ?? 0) > 0 && (
-                <span className="text-[10px] bg-gray-200 text-gray-600 rounded-full px-1.5">
+                <span className="text-[10px] bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-full px-1.5">
                   {contact.tags!.length}
                 </span>
               )}
@@ -234,13 +234,13 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
         <div>
           <button
             onClick={() => setShowNotes(!showNotes)}
-            className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 uppercase tracking-wider"
+            className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
           >
             <div className="flex items-center gap-1.5">
               <StickyNote className="h-3 w-3" />
               Notes
               {notes.length > 0 && (
-                <span className="text-[10px] bg-gray-200 text-gray-600 rounded-full px-1.5">
+                <span className="text-[10px] bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-full px-1.5">
                   {notes.length}
                 </span>
               )}
@@ -256,7 +256,7 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
                     value={newNote}
                     onChange={(e) => setNewNote(e.target.value)}
                     placeholder="Write a note..."
-                    className="w-full text-xs border rounded-md p-2 resize-none h-16 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                    className="w-full text-xs border rounded-md p-2 resize-none h-16 focus:outline-none focus:ring-1 focus:ring-blue-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                   />
                   <div className="flex gap-1">
                     <Button
@@ -280,7 +280,7 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
               ) : (
                 <button
                   onClick={() => setAddingNote(true)}
-                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   <Plus className="h-3 w-3" />
                   Add note
@@ -291,8 +291,8 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
               {notes.length > 0 ? (
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {notes.map((note: { id: string; body: string; dateAdded: string }) => (
-                    <div key={note.id} className="bg-yellow-50 border border-yellow-200 rounded-md p-2">
-                      <p className="text-xs text-gray-700 whitespace-pre-wrap">{note.body}</p>
+                    <div key={note.id} className="bg-yellow-50 border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800 rounded-md p-2">
+                      <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{note.body}</p>
                       <span className="text-[10px] text-gray-400 mt-1 block">
                         {timeAgo(note.dateAdded)}
                       </span>
@@ -300,7 +300,7 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
                   ))}
                 </div>
               ) : (
-                <p className="text-[10px] text-gray-400">No notes yet</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">No notes yet</p>
               )}
             </div>
           )}
@@ -312,13 +312,13 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
         <div>
           <button
             onClick={() => setShowOpps(!showOpps)}
-            className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 uppercase tracking-wider"
+            className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
           >
             <div className="flex items-center gap-1.5">
               <DollarSign className="h-3 w-3" />
               Opportunities
               {opportunities.length > 0 && (
-                <span className="text-[10px] bg-green-100 text-green-700 rounded-full px-1.5">
+                <span className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 rounded-full px-1.5">
                   {opportunities.length}
                 </span>
               )}
@@ -332,18 +332,18 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
                   <Link
                     key={opp.id}
                     href="/pipeline"
-                    className="flex items-center justify-between py-1.5 px-2 rounded text-xs hover:bg-green-50 transition-colors"
+                    className="flex items-center justify-between py-1.5 px-2 rounded text-xs hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <DollarSign className="h-3 w-3 text-green-400 shrink-0" />
-                      <span className="truncate text-gray-700">{opp.name}</span>
+                      <DollarSign className="h-3 w-3 text-green-400 dark:text-green-500 shrink-0" />
+                      <span className="truncate text-gray-700 dark:text-gray-300">{opp.name}</span>
                     </div>
                     <span
                       className={cn(
                         "text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0",
-                        opp.status === "open" ? "bg-blue-100 text-blue-700" :
-                        opp.status === "won" ? "bg-green-100 text-green-700" :
-                        "bg-red-100 text-red-700"
+                        opp.status === "open" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" :
+                        opp.status === "won" ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300" :
+                        "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
                       )}
                     >
                       {opp.status}
@@ -351,7 +351,7 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
                   </Link>
                 ))
               ) : (
-                <p className="text-[10px] text-gray-400">No opportunities</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">No opportunities</p>
               )}
             </div>
           )}
@@ -363,13 +363,13 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
         <div>
           <button
             onClick={() => setShowAppts(!showAppts)}
-            className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 uppercase tracking-wider"
+            className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
           >
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3 w-3" />
               Appointments
               {appointments.length > 0 && (
-                <span className="text-[10px] bg-blue-100 text-blue-700 rounded-full px-1.5">
+                <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 rounded-full px-1.5">
                   {appointments.length}
                 </span>
               )}
@@ -383,11 +383,11 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
                   <Link
                     key={appt.id}
                     href="/calendar"
-                    className="flex items-center justify-between py-1.5 px-2 rounded text-xs hover:bg-blue-50 transition-colors"
+                    className="flex items-center justify-between py-1.5 px-2 rounded text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <Calendar className="h-3 w-3 text-blue-400 shrink-0" />
-                      <span className="truncate text-gray-700">{appt.title || "Appointment"}</span>
+                      <Calendar className="h-3 w-3 text-blue-400 dark:text-blue-500 shrink-0" />
+                      <span className="truncate text-gray-700 dark:text-gray-300">{appt.title || "Appointment"}</span>
                     </div>
                     {appt.startTime && (
                       <span className="text-[10px] text-gray-400 shrink-0">
@@ -397,7 +397,7 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
                   </Link>
                 ))
               ) : (
-                <p className="text-[10px] text-gray-400">No appointments</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">No appointments</p>
               )}
             </div>
           )}
@@ -408,27 +408,27 @@ export function ContactContextPanel({ contactId, locationId }: ContactContextPan
         <div className="space-y-1.5">
           <Link
             href={`/contacts/${contactId}`}
-            className="flex items-center gap-2 w-full py-2 px-3 rounded-md text-xs text-gray-700 hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-2 w-full py-2 px-3 rounded-md text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            <User className="h-3.5 w-3.5 text-gray-400" />
+            <User className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
             View full contact
-            <ExternalLink className="h-3 w-3 text-gray-400 ml-auto" />
+            <ExternalLink className="h-3 w-3 text-gray-400 dark:text-gray-500 ml-auto" />
           </Link>
           <Link
             href="/pipeline"
-            className="flex items-center gap-2 w-full py-2 px-3 rounded-md text-xs text-gray-700 hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-2 w-full py-2 px-3 rounded-md text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            <DollarSign className="h-3.5 w-3.5 text-gray-400" />
+            <DollarSign className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
             View pipeline
-            <ExternalLink className="h-3 w-3 text-gray-400 ml-auto" />
+            <ExternalLink className="h-3 w-3 text-gray-400 dark:text-gray-500 ml-auto" />
           </Link>
           <Link
             href="/calendar"
-            className="flex items-center gap-2 w-full py-2 px-3 rounded-md text-xs text-gray-700 hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-2 w-full py-2 px-3 rounded-md text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            <Calendar className="h-3.5 w-3.5 text-gray-400" />
+            <Calendar className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
             View calendar
-            <ExternalLink className="h-3 w-3 text-gray-400 ml-auto" />
+            <ExternalLink className="h-3 w-3 text-gray-400 dark:text-gray-500 ml-auto" />
           </Link>
         </div>
       </div>

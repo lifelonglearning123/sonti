@@ -16,6 +16,7 @@ export interface Conversation {
   dateAdded?: number;
   dateUpdated?: number;
   tags?: string[];
+  conversationProviderId?: string;
 }
 
 export interface ConversationSearchResponse {

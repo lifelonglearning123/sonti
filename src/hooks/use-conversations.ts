@@ -9,8 +9,15 @@ async function fetchAPI(path: string, options?: RequestInit) {
     ...options,
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: "Request failed" }));
-    throw new Error(error.message || `Error ${res.status}`);
+    let errorMessage = `Error ${res.status}`;
+    try {
+      const text = await res.text();
+      const parsed = JSON.parse(text);
+      errorMessage = parsed.message || parsed.error || parsed.msg || errorMessage;
+    } catch {
+      // keep default errorMessage
+    }
+    throw new Error(errorMessage);
   }
   return res.json();
 }
@@ -40,11 +47,23 @@ export function useMessages(conversationId: string) {
 export function useSendMessage() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: SendMessageInput) =>
-      fetchAPI("conversations/messages/outbound", {
+    mutationFn: (data: SendMessageInput) => {
+      const payload: Record<string, unknown> = {
+        type: data.type,
+        contactId: data.contactId,
+        conversationId: data.conversationId,
+      };
+      if (data.type === "Email") {
+        payload.html = data.message;
+        payload.subject = data.subject || "";
+      } else {
+        payload.message = data.message;
+      }
+      return fetchAPI("conversations/messages", {
         method: "POST",
-        body: JSON.stringify(data),
-      }),
+        body: JSON.stringify(payload),
+      });
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["messages", variables.conversationId] });
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
