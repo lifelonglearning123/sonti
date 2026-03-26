@@ -55,16 +55,20 @@ export const authConfig: NextAuthConfig = {
       return token;
     },
     async session({ session, token }) {
+      // Top-level fields for server-side (GHL proxy)
       (session as any).accessToken = token.accessToken;
       (session as any).locationId = token.locationId;
       (session as any).role = token.role;
       (session as any).userId = token.userId;
       (session as any).error = token.error;
-      // Also put role on user object for client-side access
-      if (session.user) {
-        (session.user as any).role = token.role;
-        (session.user as any).userId = token.userId;
-      }
+      // Fields on user object for client-side useSession()
+      session.user = {
+        ...session.user,
+        role: token.role as string,
+        userId: token.userId as string,
+        accessToken: token.accessToken as string | null,
+        locationId: token.locationId as string | null,
+      };
       return session;
     },
   },
