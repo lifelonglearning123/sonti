@@ -23,6 +23,7 @@ const pageTitles: Record<string, string> = {
   "/calendar": "Calendar",
   "/conversations": "Conversations",
   "/settings": "Settings",
+  "/admin": "Admin",
 };
 
 export function Topbar() {
