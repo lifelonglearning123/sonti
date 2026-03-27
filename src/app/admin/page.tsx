@@ -58,7 +58,8 @@ function AdminLogin() {
     });
 
     if (result?.ok) {
-      // Page will re-render with session
+      window.location.reload();
+      return;
     } else {
       setError("Invalid admin credentials");
     }
