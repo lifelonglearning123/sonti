@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Workflow, Loader2, LogIn } from "lucide-react";
+import { Loader2, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,11 +43,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-red-50">
       <div className="w-full max-w-md mx-auto p-8">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#E8553A] mb-6">
-            <Workflow className="h-9 w-9 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Sonti</h1>
-          <p className="text-gray-500">Smart CRM for modern teams</p>
+          <h1 className="text-2xl font-bold text-gray-900">Smart CRM for modern teams</h1>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
