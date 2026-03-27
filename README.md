@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sonti
+
+A whitelabeled CRM built on GoHighLevel (GHL) API. Users interact with a clean branded interface — no GHL branding or credentials are exposed.
+
+## Features
+
+- **Dashboard** — Overview with stats and quick actions
+- **Contacts** — View, search, and manage contacts
+- **Conversations** — Multi-channel messaging (SMS, Email, WhatsApp)
+- **Pipeline** — Kanban-style deal management
+- **Calendar** — Appointment scheduling
+- **Dark Mode** — Full dark mode support
+- **Admin Panel** — Standalone user management at `/admin`
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router, Turbopack)
+- **Auth:** NextAuth.js v5 with credentials provider
+- **Database:** SQLite via better-sqlite3 (user accounts)
+- **Styling:** Tailwind CSS v4 with custom dark mode
+- **UI Components:** Radix UI primitives (shadcn/ui pattern)
+- **State:** TanStack React Query
+- **API:** GHL API proxy at `/api/ghl/[...path]`
 
 ## Getting Started
 
-First, run the development server:
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Set up the database
+
+```bash
+npx tsx prisma/seed.ts
+```
+
+Creates the SQLite database (`dev.db`) and seeds an admin user.
+
+### 3. Configure environment
+
+Ensure `.env.local` has:
+
+```
+NEXTAUTH_SECRET=your-secret-key
+NEXTAUTH_URL=http://localhost:3001
+```
+
+### 4. Run the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3001](http://localhost:3001).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Authentication
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### User Login (`/login`)
 
-## Learn More
+Simple username/password login. No GHL branding — just "Smart CRM for modern teams".
 
-To learn more about Next.js, take a look at the following resources:
+### Admin Panel (`/admin`)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Standalone admin page. Default credentials:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Username:** `admin`
+- **Password:** `changeme123`
 
-## Deploy on Vercel
+Admin can:
+- Create/edit/delete user accounts
+- Link GHL credentials (Location ID + API Token) per user
+- GHL tokens are validated against the API before saving
+- Users never see any GHL references
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Whitelabel Design
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Login page: No logo, no brand name — just the tagline
+- Dashboard: Sonti branding (orange/red theme)
+- Admin panel: Neutral gray theme with shield icon
+- All GHL references hidden from end users
+
+## Project Structure
+
+```
+src/
+  app/
+    (dashboard)/        # Protected dashboard pages
+    admin/              # Standalone admin panel
+    login/              # User login page
+    api/
+      auth/             # NextAuth endpoints
+      ghl/[...path]/    # GHL API proxy
+      admin/users/      # Admin CRUD API
+  components/
+    layout/             # Sidebar, Topbar
+    ui/                 # Reusable UI components
+    contacts/           # Contact components
+    conversations/      # Messaging components
+    pipeline/           # Pipeline components
+    calendar/           # Calendar components
+  hooks/                # React Query hooks
+  lib/
+    auth.ts             # NextAuth configuration
+    db.ts               # SQLite database
+    utils.ts            # Utilities
+  types/                # TypeScript types
+```
+
+## Relationship to PipeFlow
+
+Sonti is a whitelabeled version of [PipeFlow](https://github.com/smiles9/pipeflow). Key differences:
+- Different branding (Sonti vs PipeFlow)
+- No logo or brand on login page
+- Runs on port 3001 (PipeFlow on 3000)
+- Same admin system and GHL integration
