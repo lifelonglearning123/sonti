@@ -70,3 +70,19 @@ export const userQueries = {
     return row.count;
   },
 };
+
+// Settings queries (key-value store)
+export const settingsQueries = {
+  get(key: string): string | undefined {
+    const row = db.prepare("SELECT value FROM Settings WHERE key = ?").get(key) as { value: string } | undefined;
+    return row?.value;
+  },
+
+  set(key: string, value: string): void {
+    db.prepare("INSERT OR REPLACE INTO Settings (key, value) VALUES (?, ?)").run(key, value);
+  },
+
+  delete(key: string): void {
+    db.prepare("DELETE FROM Settings WHERE key = ?").run(key);
+  },
+};

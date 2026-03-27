@@ -55,3 +55,57 @@ export function useDeleteUser() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 }
+
+// Agency settings hooks
+interface AgencySettings {
+  hasToken: boolean;
+  companyId: string | null;
+  agencyName: string | null;
+}
+
+export function useAgencySettings() {
+  return useQuery<AgencySettings>({
+    queryKey: ["agency-settings"],
+    queryFn: () => adminFetch("settings"),
+  });
+}
+
+export function useSaveAgencyToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (agencyToken: string) =>
+      adminFetch("settings", { method: "PUT", body: JSON.stringify({ agencyToken }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agency-settings"] });
+      qc.invalidateQueries({ queryKey: ["ghl-locations"] });
+    },
+  });
+}
+
+// GHL locations hooks
+interface GhlLocation {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+}
+
+export function useGhlLocations(enabled = true) {
+  return useQuery<{ locations: GhlLocation[] }>({
+    queryKey: ["ghl-locations"],
+    queryFn: () => adminFetch("locations"),
+    enabled,
+  });
+}
+
+export function useCreateGhlLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; email?: string; phone?: string; address?: string; city?: string; country?: string }) =>
+      adminFetch("locations", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ghl-locations"] }),
+  });
+}
