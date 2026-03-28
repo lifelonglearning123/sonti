@@ -1,8 +1,8 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-// Resolve DB path relative to the project root
-const dbPath = path.resolve(process.cwd(), "dev.db");
+// Use DATABASE_PATH env var in production (e.g. Render persistent disk), fallback to local dev.db
+const dbPath = process.env.DATABASE_PATH || path.resolve(process.cwd(), "dev.db");
 
 const globalForDb = globalThis as unknown as { db: Database.Database };
 
