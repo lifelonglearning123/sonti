@@ -3,7 +3,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import { randomBytes } from "crypto";
 
-const dbPath = path.join(__dirname, "..", "dev.db");
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, "..", "dev.db");
 const db = new Database(dbPath);
 
 // Create tables if they don't exist
