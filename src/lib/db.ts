@@ -1,14 +1,27 @@
 import Database from "better-sqlite3";
+import fs from "fs";
 import path from "path";
 
-// Use DATABASE_PATH env var in production (e.g. Render persistent disk), fallback to local dev.db
+// Use DATABASE_PATH env var in production (e.g. Railway volume), fallback to local dev.db
 const dbPath = process.env.DATABASE_PATH || path.resolve(process.cwd(), "dev.db");
 
 const globalForDb = globalThis as unknown as { db: Database.Database };
 
-export const db = globalForDb.db || new Database(dbPath);
+function getDb(): Database.Database {
+  if (globalForDb.db) return globalForDb.db;
+  // Ensure the directory exists before opening (volume may not exist at build time)
+  const dir = path.dirname(dbPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const db = new Database(dbPath);
+  if (process.env.NODE_ENV !== "production") globalForDb.db = db;
+  return db;
+}
 
-if (process.env.NODE_ENV !== "production") globalForDb.db = db;
+export const db = new Proxy({} as Database.Database, {
+  get(_target, prop) {
+    return (getDb() as any)[prop];
+  },
+});
 
 // User type
 export interface DbUser {
