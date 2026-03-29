@@ -22,7 +22,7 @@ import { Workflow } from "lucide-react";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
-  const locationId = (session as any)?.locationId || "";
+  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
   const [copied, setCopied] = useState(false);
 
   const maskedLocationId = locationId
