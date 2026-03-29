@@ -23,7 +23,7 @@ export default function OpportunityDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const locationId = (session as any)?.locationId || "";
+  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
   const oppId = params.id as string;
 
   const { data: oppData, isLoading: oppLoading } = useOpportunity(oppId);

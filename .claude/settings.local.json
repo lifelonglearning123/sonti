@@ -3,7 +3,12 @@
     "allow": [
       "Bash(openssl rand:*)",
       "Bash(node:*)",
-      "Bash(grep -r \"PrismaClient\\\\|prisma\" 'C:/python/ghl - white lable/sonti/node_modules/next/dist/docs/01-app/02-guides/' --include=*.md -l)"
+      "Bash(grep -r \"PrismaClient\\\\|prisma\" 'C:/python/ghl - white lable/sonti/node_modules/next/dist/docs/01-app/02-guides/' --include=*.md -l)",
+      "Bash(find 'C:\\\\python\\\\ghl - white lable\\\\sonti\\\\src\\\\app' -name login* -o -name *login*)",
+      "Bash(find 'C:\\\\python\\\\ghl - white lable\\\\sonti\\\\src' -name *.ts -o -name *.tsx)",
+      "Bash(xargs grep:*)",
+      "Bash(find 'C:\\\\python\\\\ghl - white lable\\\\sonti\\\\src\\\\hooks' -name *.ts -o -name *.tsx)",
+      "Bash(find 'C:\\\\python\\\\ghl - white lable\\\\sonti\\\\src\\\\app\\\\api' -type f -name *.ts)"
     ]
   }
 }

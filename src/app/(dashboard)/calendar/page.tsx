@@ -117,7 +117,7 @@ function MiniCalendar({ currentDate, onDateSelect }: { currentDate: Date; onDate
 
 export default function CalendarPage() {
   const { data: session } = useSession();
-  const locationId = (session as any)?.locationId || "";
+  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
 
   // Page-level state
   const [activeTab, setActiveTab] = useState<PageTab>("calendar");

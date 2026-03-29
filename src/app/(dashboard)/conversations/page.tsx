@@ -12,7 +12,7 @@ import type { Conversation } from "@/types/conversation";
 
 export default function ConversationsPage() {
   const { data: session } = useSession();
-  const locationId = (session as any)?.locationId || "";
+  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
   const [search, setSearch] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showContextPanel, setShowContextPanel] = useState(true);

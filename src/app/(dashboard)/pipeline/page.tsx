@@ -60,7 +60,7 @@ function hasActiveFilters(filters: ActiveFilters): boolean {
 
 export default function PipelinePage() {
   const { data: session } = useSession();
-  const locationId = (session as any)?.locationId || "";
+  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
   const { data: pipelinesData, isLoading: pipelinesLoading, error: pipelinesError } = usePipelines(locationId);
   const [selectedPipelineId, setSelectedPipelineId] = useState("");
 

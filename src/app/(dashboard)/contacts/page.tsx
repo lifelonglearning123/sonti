@@ -30,7 +30,7 @@ export default function ContactsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [recentContactIds, setRecentContactIds] = useState<string[]>([]);
 
-  const locationId = (session as any)?.locationId || "";
+  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
   const { data, isLoading } = useContacts(locationId, search, page);
   const deleteContact = useDeleteContact();
   const { data: tagsData } = useLocationTags(locationId);

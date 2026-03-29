@@ -15,7 +15,7 @@ export default function ContactDetailPage() {
   const params = useParams();
   const { data: session } = useSession();
   const contactId = params.id as string;
-  const locationId = (session as any)?.locationId || "";
+  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
   const { data, isLoading } = useContact(contactId);
   const contact = data?.contact;
   const [showBooking, setShowBooking] = useState(false);

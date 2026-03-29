@@ -106,7 +106,7 @@ function StatCard({
 export default function DashboardPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const locationId = (session as any)?.locationId || "";
+  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
 
   // Fetch data
   const { data: contactsData, isLoading: contactsLoading } = useContacts(
