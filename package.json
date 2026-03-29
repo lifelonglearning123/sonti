@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --webpack -p 3001",
     "build": "next build",
-    "start": "tsx prisma/seed.ts && next start",
+    "start": "node prisma/seed.js && next start",
     "lint": "eslint"
   },
   "dependencies": {
