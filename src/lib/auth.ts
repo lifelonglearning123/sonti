@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { userQueries } from "@/lib/db";
 
 export const authConfig: NextAuthConfig = {
+  trustHost: true,
   providers: [
     Credentials({
       id: "credentials",
