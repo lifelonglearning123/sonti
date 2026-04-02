@@ -13,6 +13,13 @@ RUN npx prisma generate
 RUN npm run build
 RUN cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/
 
+FROM base AS prisma
+COPY --from=deps /app/node_modules ./node_modules
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+COPY package.json package-lock.json ./
+RUN npx prisma generate
+
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
