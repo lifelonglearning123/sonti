@@ -20,16 +20,51 @@ async function verifyGhlToken(locationId: string, token: string): Promise<{ vali
 
 async function requireAdmin() {
   const session = await auth();
-  const role = (session as any)?.role || (session?.user as any)?.role;
+  const role = getSessionRole(session);
   if (role !== "admin") return null;
   return session;
+}
+
+function getSessionRole(session: unknown): string | null {
+  if (!session || typeof session !== "object") return null;
+  const s = session as Record<string, unknown>;
+
+  const direct = s["role"];
+  if (typeof direct === "string") return direct;
+
+  const user = s["user"];
+  if (user && typeof user === "object") {
+    const u = user as Record<string, unknown>;
+    const nested = u["role"];
+    if (typeof nested === "string") return nested;
+  }
+
+  return null;
+}
+
+function getSessionLocationId(session: unknown): string | null {
+  if (!session || typeof session !== "object") return null;
+  const s = session as Record<string, unknown>;
+
+  const direct = s["locationId"];
+  if (typeof direct === "string" && direct) return direct;
+
+  const user = s["user"];
+  if (user && typeof user === "object") {
+    const u = user as Record<string, unknown>;
+    const nested = u["locationId"];
+    if (typeof nested === "string" && nested) return nested;
+  }
+
+  return null;
 }
 
 export async function GET() {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const users = userQueries.findAll().map((u) => ({
+  const adminLocationId = getSessionLocationId(session);
+  const users = (adminLocationId ? await userQueries.findAllByLocationId(adminLocationId) : await userQueries.findAll()).map((u) => ({
     id: u.id,
     username: u.username,
     role: u.role,
@@ -45,6 +80,8 @@ export async function POST(req: Request) {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
+  const adminLocationId = getSessionLocationId(session);
+
   const body = await req.json();
   const { username, password, role, ghlLocationId, ghlAccessToken } = body;
 
@@ -52,15 +89,25 @@ export async function POST(req: Request) {
     return Response.json({ error: "Username and password are required" }, { status: 400 });
   }
 
-  const existing = userQueries.findByUsername(username);
+  if (adminLocationId && ghlLocationId && ghlLocationId !== adminLocationId) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const effectiveLocationId = adminLocationId || ghlLocationId || null;
+
+  const existing = await userQueries.findByUsername(username);
   if (existing) {
     return Response.json({ error: "Username already exists" }, { status: 409 });
   }
 
   // Verify GHL credentials if provided
   let locationName: string | undefined;
-  if (ghlLocationId && ghlAccessToken) {
-    const check = await verifyGhlToken(ghlLocationId, ghlAccessToken);
+  if (ghlAccessToken && !effectiveLocationId) {
+    return Response.json({ error: "ghlLocationId is required when providing ghlAccessToken" }, { status: 400 });
+  }
+
+  if (effectiveLocationId && ghlAccessToken) {
+    const check = await verifyGhlToken(effectiveLocationId, ghlAccessToken);
     if (!check.valid) {
       return Response.json({ error: `Invalid GHL credentials: ${check.error}` }, { status: 400 });
     }
@@ -69,12 +116,12 @@ export async function POST(req: Request) {
 
   const id = randomBytes(12).toString("hex");
   const passwordHash = await bcrypt.hash(password, 10);
-  userQueries.create({
+  await userQueries.create({
     id,
     username,
     passwordHash,
     role: role || "user",
-    ghlLocationId: ghlLocationId || null,
+    ghlLocationId: effectiveLocationId,
     ghlAccessToken: ghlAccessToken || null,
   });
 

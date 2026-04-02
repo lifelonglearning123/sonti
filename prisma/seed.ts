@@ -1,50 +1,47 @@
+import "dotenv/config";
+
 import bcrypt from "bcryptjs";
-import Database from "better-sqlite3";
-import fs from "fs";
-import path from "path";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { randomBytes } from "crypto";
 
-const dbPath = process.env.DATABASE_PATH || path.join(__dirname, "..", "dev.db");
-const dir = path.dirname(dbPath);
-if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-const db = new Database(dbPath);
+const { PrismaClient } = require("@prisma/client") as { PrismaClient: any };
 
-// Create tables if they don't exist
-db.exec(`
-  CREATE TABLE IF NOT EXISTS User (
-    id TEXT PRIMARY KEY,
-    username TEXT NOT NULL UNIQUE,
-    passwordHash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'user',
-    ghlLocationId TEXT,
-    ghlAccessToken TEXT,
-    createdAt TEXT NOT NULL,
-    updatedAt TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS Settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  );
-`);
-
-// Check if admin exists
-const existing = db.prepare("SELECT id FROM User WHERE role = 'admin'").get();
-if (existing) {
-  console.log("Admin user already exists.");
-  db.close();
-  process.exit(0);
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL is required to run prisma/seed.ts");
 }
 
-const id = randomBytes(12).toString("hex");
-const hash = bcrypt.hashSync("changeme123", 10);
-const now = new Date().toISOString();
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
-db.prepare(
-  "INSERT INTO User (id, username, passwordHash, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)"
-).run(id, "admin", hash, "admin", now, now);
+async function main() {
+  const existing = await prisma.user.findFirst({ where: { role: "admin" }, select: { id: true } });
+  if (existing) {
+    console.log("Admin user already exists.");
+    return;
+  }
 
-console.log("Created admin user: admin");
-console.log("Default password: changeme123");
-console.log("IMPORTANT: Change this password after first login!");
+  const id = randomBytes(12).toString("hex");
+  const passwordHash = bcrypt.hashSync("changeme123", 10);
 
-db.close();
+  await prisma.user.create({
+    data: {
+      id,
+      username: "admin",
+      passwordHash,
+      role: "admin",
+    },
+  });
+
+  console.log("Created admin user: admin");
+  console.log("Default password: changeme123");
+  console.log("IMPORTANT: Change this password after first login!");
+}
+
+main()
+  .catch((error) => {
+    console.error("[Seed] Error:", error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

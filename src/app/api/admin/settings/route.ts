@@ -5,18 +5,37 @@ const GHL_BASE_URL = "https://services.leadconnectorhq.com";
 
 async function requireAdmin() {
   const session = await auth();
-  const role = (session as any)?.role || (session?.user as any)?.role;
+  const role = getSessionRole(session);
   if (role !== "admin") return null;
   return session;
+}
+
+function getSessionRole(session: unknown): string | null {
+  if (!session || typeof session !== "object") return null;
+  const s = session as Record<string, unknown>;
+
+  const direct = s["role"];
+  if (typeof direct === "string") return direct;
+
+  const user = s["user"];
+  if (user && typeof user === "object") {
+    const u = user as Record<string, unknown>;
+    const nested = u["role"];
+    if (typeof nested === "string") return nested;
+  }
+
+  return null;
 }
 
 export async function GET() {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const agencyToken = settingsQueries.get("agencyToken");
-  const companyId = settingsQueries.get("companyId");
-  const agencyName = settingsQueries.get("agencyName");
+  const [agencyToken, companyId, agencyName] = await Promise.all([
+    settingsQueries.get("agencyToken"),
+    settingsQueries.get("companyId"),
+    settingsQueries.get("agencyName"),
+  ]);
 
   return Response.json({
     hasToken: !!agencyToken,
@@ -76,9 +95,9 @@ export async function PUT(req: Request) {
     }
 
     // Store everything
-    settingsQueries.set("agencyToken", agencyToken);
-    if (companyId) settingsQueries.set("companyId", companyId);
-    settingsQueries.set("agencyName", agencyName);
+    await settingsQueries.set("agencyToken", agencyToken);
+    if (companyId) await settingsQueries.set("companyId", companyId);
+    await settingsQueries.set("agencyName", agencyName);
 
     return Response.json({
       success: true,

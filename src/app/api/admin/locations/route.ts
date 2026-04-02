@@ -5,13 +5,51 @@ const GHL_BASE_URL = "https://services.leadconnectorhq.com";
 
 async function requireAdmin() {
   const session = await auth();
-  const role = (session as any)?.role || (session?.user as any)?.role;
+  const role = getSessionRole(session);
   if (role !== "admin") return null;
   return session;
 }
 
-function getAgencyHeaders() {
-  const token = settingsQueries.get("agencyToken");
+function getSessionRole(session: unknown): string | null {
+  if (!session || typeof session !== "object") return null;
+  const s = session as Record<string, unknown>;
+
+  const direct = s["role"];
+  if (typeof direct === "string") return direct;
+
+  const user = s["user"];
+  if (user && typeof user === "object") {
+    const u = user as Record<string, unknown>;
+    const nested = u["role"];
+    if (typeof nested === "string") return nested;
+  }
+
+  return null;
+}
+
+function getSessionLocationId(session: unknown): string | null {
+  if (!session || typeof session !== "object") return null;
+  const s = session as Record<string, unknown>;
+
+  const direct = s["locationId"];
+  if (typeof direct === "string" && direct) return direct;
+
+  const user = s["user"];
+  if (user && typeof user === "object") {
+    const u = user as Record<string, unknown>;
+    const nested = u["locationId"];
+    if (typeof nested === "string" && nested) return nested;
+  }
+
+  return null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+async function getAgencyHeaders() {
+  const token = await settingsQueries.get("agencyToken");
   if (!token) return null;
   return {
     Authorization: `Bearer ${token}`,
@@ -25,12 +63,13 @@ export async function GET() {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const headers = getAgencyHeaders();
+  const adminLocationId = getSessionLocationId(session);
+  const headers = await getAgencyHeaders();
   if (!headers) {
     return Response.json({ error: "Agency token not configured. Go to Settings first." }, { status: 400 });
   }
 
-  const companyId = settingsQueries.get("companyId");
+  const companyId = await settingsQueries.get("companyId");
 
   try {
     let url = `${GHL_BASE_URL}/locations/search?limit=100`;
@@ -45,16 +84,30 @@ export async function GET() {
       return Response.json({ error: `GHL API error: ${res.status}` }, { status: res.status });
     }
 
-    const data = await res.json();
-    const locations = (data.locations || []).map((loc: any) => ({
-      id: loc.id,
-      name: loc.name,
-      email: loc.email || null,
-      phone: loc.phone || null,
-      address: loc.address || null,
-      city: loc.city || null,
-      country: loc.country || null,
-    }));
+    const data = (await res.json()) as { locations?: unknown };
+    const rawLocations = Array.isArray(data.locations) ? data.locations : [];
+
+    const locations = rawLocations
+      .map((loc) => {
+        if (!loc || typeof loc !== "object") return null;
+        const r = loc as Record<string, unknown>;
+
+        const id = asString(r.id);
+        const name = asString(r.name);
+        if (!id || !name) return null;
+
+        return {
+          id,
+          name,
+          email: asString(r.email),
+          phone: asString(r.phone),
+          address: asString(r.address),
+          city: asString(r.city),
+          country: asString(r.country),
+        };
+      })
+      .filter((loc): loc is NonNullable<typeof loc> => !!loc)
+      .filter((loc) => (adminLocationId ? loc.id === adminLocationId : true));
 
     return Response.json({ locations });
   } catch (error) {
@@ -67,12 +120,17 @@ export async function POST(req: Request) {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const headers = getAgencyHeaders();
+  const adminLocationId = getSessionLocationId(session);
+  if (adminLocationId) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const headers = await getAgencyHeaders();
   if (!headers) {
     return Response.json({ error: "Agency token not configured" }, { status: 400 });
   }
 
-  const companyId = settingsQueries.get("companyId");
+  const companyId = await settingsQueries.get("companyId");
 
   const body = await req.json();
   const { name, email, phone, address, city, country } = body;

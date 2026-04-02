@@ -1,0 +1,37 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    env_file:
+      - .env
+
+  db_push:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    command: ["npx", "prisma", "db", "push"]
+    environment:
+      NODE_ENV: production
+    env_file:
+      - .env
+
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    command: ["node", "prisma/seed.js"]
+    environment:
+      NODE_ENV: production
+    env_file:
+      - .env

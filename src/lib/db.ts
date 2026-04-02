@@ -1,27 +1,24 @@
-import Database from "better-sqlite3";
-import fs from "fs";
-import path from "path";
+import { PrismaClient, type Prisma, type User as PrismaUser } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-// Use DATABASE_PATH env var in production (e.g. Railway volume), fallback to local dev.db
-const dbPath = process.env.DATABASE_PATH || path.resolve(process.cwd(), "dev.db");
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
-const globalForDb = globalThis as unknown as { db: Database.Database };
+function getPrisma() {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma;
 
-function getDb(): Database.Database {
-  if (globalForDb.db) return globalForDb.db;
-  // Ensure the directory exists before opening (volume may not exist at build time)
-  const dir = path.dirname(dbPath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const db = new Database(dbPath);
-  if (process.env.NODE_ENV !== "production") globalForDb.db = db;
-  return db;
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is required to use the database.");
+  }
+
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString }),
+    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+  });
+
+  if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+  return prisma;
 }
-
-export const db = new Proxy({} as Database.Database, {
-  get(_target, prop) {
-    return (getDb() as any)[prop];
-  },
-});
 
 // User type
 export interface DbUser {
@@ -35,67 +32,135 @@ export interface DbUser {
   updatedAt: string;
 }
 
-// User queries
+function toDbUser(user: PrismaUser): DbUser {
+  return {
+    id: user.id,
+    username: user.username,
+    passwordHash: user.passwordHash,
+    role: user.role,
+    ghlLocationId: user.ghlLocationId,
+    ghlAccessToken: user.ghlAccessToken,
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
+  };
+}
+
 export const userQueries = {
-  findByUsername(username: string): DbUser | undefined {
-    return db.prepare("SELECT * FROM User WHERE username = ?").get(username) as DbUser | undefined;
+  async findByUsername(username: string): Promise<DbUser | undefined> {
+    const prisma = getPrisma();
+    const user = await prisma.user.findUnique({ where: { username } });
+    return user ? toDbUser(user) : undefined;
   },
 
-  findById(id: string): DbUser | undefined {
-    return db.prepare("SELECT * FROM User WHERE id = ?").get(id) as DbUser | undefined;
+  async findById(id: string): Promise<DbUser | undefined> {
+    const prisma = getPrisma();
+    const user = await prisma.user.findUnique({ where: { id } });
+    return user ? toDbUser(user) : undefined;
   },
 
-  findAll(): DbUser[] {
-    return db.prepare("SELECT * FROM User ORDER BY createdAt ASC").all() as DbUser[];
+  async findAll(): Promise<DbUser[]> {
+    const prisma = getPrisma();
+    const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" } });
+    return users.map(toDbUser);
   },
 
-  create(data: { id: string; username: string; passwordHash: string; role: string; ghlLocationId?: string | null; ghlAccessToken?: string | null }): DbUser {
-    const now = new Date().toISOString();
-    db.prepare(
-      "INSERT INTO User (id, username, passwordHash, role, ghlLocationId, ghlAccessToken, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-    ).run(data.id, data.username, data.passwordHash, data.role, data.ghlLocationId || null, data.ghlAccessToken || null, now, now);
-    return this.findById(data.id)!;
+  async findAllByLocationId(ghlLocationId: string): Promise<DbUser[]> {
+    const prisma = getPrisma();
+    const users = await prisma.user.findMany({
+      where: { ghlLocationId },
+      orderBy: { createdAt: "asc" },
+    });
+    return users.map(toDbUser);
   },
 
-  update(id: string, data: Record<string, unknown>): DbUser {
-    const now = new Date().toISOString();
-    const fields: string[] = [];
-    const values: unknown[] = [];
+  async create(data: {
+    id: string;
+    username: string;
+    passwordHash: string;
+    role: string;
+    ghlLocationId?: string | null;
+    ghlAccessToken?: string | null;
+  }): Promise<DbUser> {
+    const prisma = getPrisma();
+    const user = await prisma.user.create({
+      data: {
+        id: data.id,
+        username: data.username,
+        passwordHash: data.passwordHash,
+        role: data.role,
+        ghlLocationId: data.ghlLocationId ?? null,
+        ghlAccessToken: data.ghlAccessToken ?? null,
+      },
+    });
+    return toDbUser(user);
+  },
 
-    for (const [key, value] of Object.entries(data)) {
-      fields.push(`${key} = ?`);
-      values.push(value);
+  async update(id: string, data: Record<string, unknown>): Promise<DbUser> {
+    const prisma = getPrisma();
+    const updateData: Prisma.UserUpdateInput = {};
+
+    const username = data["username"];
+    if (typeof username === "string") updateData.username = username;
+
+    const passwordHash = data["passwordHash"];
+    if (typeof passwordHash === "string") updateData.passwordHash = passwordHash;
+
+    const role = data["role"];
+    if (typeof role === "string") updateData.role = role;
+
+    const ghlLocationId = data["ghlLocationId"];
+    if (typeof ghlLocationId === "string" || ghlLocationId === null) updateData.ghlLocationId = ghlLocationId;
+
+    const ghlAccessToken = data["ghlAccessToken"];
+    if (typeof ghlAccessToken === "string" || ghlAccessToken === null) updateData.ghlAccessToken = ghlAccessToken;
+
+    if (Object.keys(updateData).length === 0) {
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) throw new Error("User not found");
+      return toDbUser(user);
     }
-    fields.push("updatedAt = ?");
-    values.push(now);
-    values.push(id);
 
-    db.prepare(`UPDATE User SET ${fields.join(", ")} WHERE id = ?`).run(...values);
-    return this.findById(id)!;
+    const user = await prisma.user.update({
+      where: { id },
+      data: updateData,
+    });
+    return toDbUser(user);
   },
 
-  delete(id: string): void {
-    db.prepare("DELETE FROM User WHERE id = ?").run(id);
+  async delete(id: string): Promise<void> {
+    const prisma = getPrisma();
+    await prisma.user.delete({ where: { id } });
   },
 
-  countByRole(role: string): number {
-    const row = db.prepare("SELECT COUNT(*) as count FROM User WHERE role = ?").get(role) as { count: number };
-    return row.count;
+  async countByRole(role: string): Promise<number> {
+    const prisma = getPrisma();
+    return prisma.user.count({ where: { role } });
+  },
+
+  async countByRoleAndLocationId(role: string, ghlLocationId: string): Promise<number> {
+    const prisma = getPrisma();
+    return prisma.user.count({ where: { role, ghlLocationId } });
   },
 };
 
-// Settings queries (key-value store)
 export const settingsQueries = {
-  get(key: string): string | undefined {
-    const row = db.prepare("SELECT value FROM Settings WHERE key = ?").get(key) as { value: string } | undefined;
+  async get(key: string): Promise<string | undefined> {
+    const prisma = getPrisma();
+    const row = await prisma.settings.findUnique({ where: { key } });
     return row?.value;
   },
 
-  set(key: string, value: string): void {
-    db.prepare("INSERT OR REPLACE INTO Settings (key, value) VALUES (?, ?)").run(key, value);
+  async set(key: string, value: string): Promise<void> {
+    const prisma = getPrisma();
+    await prisma.settings.upsert({
+      where: { key },
+      create: { key, value },
+      update: { value },
+    });
   },
 
-  delete(key: string): void {
-    db.prepare("DELETE FROM Settings WHERE key = ?").run(key);
+  async delete(key: string): Promise<void> {
+    const prisma = getPrisma();
+    await prisma.settings.delete({ where: { key } });
   },
 };

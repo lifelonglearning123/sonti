@@ -19,18 +19,56 @@ async function verifyGhlToken(locationId: string, token: string): Promise<{ vali
 
 async function requireAdmin() {
   const session = await auth();
-  const role = (session as any)?.role || (session?.user as any)?.role;
+  const role = getSessionRole(session);
   if (role !== "admin") return null;
   return session;
+}
+
+function getSessionRole(session: unknown): string | null {
+  if (!session || typeof session !== "object") return null;
+  const s = session as Record<string, unknown>;
+
+  const direct = s["role"];
+  if (typeof direct === "string") return direct;
+
+  const user = s["user"];
+  if (user && typeof user === "object") {
+    const u = user as Record<string, unknown>;
+    const nested = u["role"];
+    if (typeof nested === "string") return nested;
+  }
+
+  return null;
+}
+
+function getSessionLocationId(session: unknown): string | null {
+  if (!session || typeof session !== "object") return null;
+  const s = session as Record<string, unknown>;
+
+  const direct = s["locationId"];
+  if (typeof direct === "string" && direct) return direct;
+
+  const user = s["user"];
+  if (user && typeof user === "object") {
+    const u = user as Record<string, unknown>;
+    const nested = u["locationId"];
+    if (typeof nested === "string" && nested) return nested;
+  }
+
+  return null;
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
+  const adminLocationId = getSessionLocationId(session);
   const { id } = await params;
-  const user = userQueries.findById(id);
+  const user = await userQueries.findById(id);
   if (!user) return Response.json({ error: "User not found" }, { status: 404 });
+  if (adminLocationId && user.ghlLocationId !== adminLocationId) {
+    return Response.json({ error: "User not found" }, { status: 404 });
+  }
 
   return Response.json({
     user: {
@@ -48,6 +86,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
+  const adminLocationId = getSessionLocationId(session);
   const { id } = await params;
   const body = await req.json();
   const data: Record<string, unknown> = {};
@@ -58,9 +97,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.ghlLocationId !== undefined) data.ghlLocationId = body.ghlLocationId || null;
   if (body.ghlAccessToken !== undefined) data.ghlAccessToken = body.ghlAccessToken || null;
 
+  const existingUser = await userQueries.findById(id);
+  if (!existingUser) return Response.json({ error: "User not found" }, { status: 404 });
+  if (adminLocationId && existingUser.ghlLocationId !== adminLocationId) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (adminLocationId && body.ghlLocationId !== undefined && body.ghlLocationId !== adminLocationId) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // Verify GHL credentials if both are provided
-  const locId = (data.ghlLocationId as string) || userQueries.findById(id)?.ghlLocationId;
-  const token = (data.ghlAccessToken as string) || (body.ghlAccessToken === undefined ? userQueries.findById(id)?.ghlAccessToken : null);
+  const locId = (data.ghlLocationId as string) || existingUser.ghlLocationId;
+  const token =
+    (data.ghlAccessToken as string) ||
+    (body.ghlAccessToken === undefined ? existingUser.ghlAccessToken : null);
   if (locId && token && (body.ghlLocationId || body.ghlAccessToken)) {
     const check = await verifyGhlToken(locId, token);
     if (!check.valid) {
@@ -68,7 +119,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   }
 
-  const user = userQueries.update(id, data);
+  const user = await userQueries.update(id, data);
   return Response.json({ user: { id: user.id, username: user.username, role: user.role } });
 }
 
@@ -76,13 +127,21 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
+  const adminLocationId = getSessionLocationId(session);
   const { id } = await params;
-  const adminCount = userQueries.countByRole("admin");
-  const user = userQueries.findById(id);
+  const user = await userQueries.findById(id);
+  if (!user) return Response.json({ error: "User not found" }, { status: 404 });
+  if (adminLocationId && user.ghlLocationId !== adminLocationId) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const adminCount = adminLocationId
+    ? await userQueries.countByRoleAndLocationId("admin", adminLocationId)
+    : await userQueries.countByRole("admin");
   if (user?.role === "admin" && adminCount <= 1) {
     return Response.json({ error: "Cannot delete the last admin user" }, { status: 400 });
   }
 
-  userQueries.delete(id);
+  await userQueries.delete(id);
   return Response.json({ success: true });
 }

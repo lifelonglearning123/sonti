@@ -21,7 +21,7 @@ export const authConfig: NextAuthConfig = {
         if (!username || !password) return null;
 
         try {
-          const user = userQueries.findByUsername(username);
+          const user = await userQueries.findByUsername(username);
           if (!user) return null;
 
           const valid = await bcrypt.compare(password, user.passwordHash);
