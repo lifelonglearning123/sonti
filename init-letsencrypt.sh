@@ -5,7 +5,7 @@ if ! [ -x "$(command -v docker)" ]; then
   exit 1
 fi
 
-domains=(growthmapper.leonardopower.com)
+domains=(portal.macaws.ai)
 rsa_key_size=4096
 data_path="./data/certbot"
 email="cyrus@macaws.ai" # Adding a valid address is strongly recommended
