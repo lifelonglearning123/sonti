@@ -38,6 +38,49 @@ interface UserFormData {
   newLocationPhone: string;
 }
 
+function getErrorMessage(err: unknown) {
+  if (err && typeof err === "object") {
+    const e = err as Record<string, unknown>;
+    const msg = e["message"];
+    if (typeof msg === "string" && msg) return msg;
+  }
+  return "Request failed";
+}
+
+function getSessionRole(session: unknown): string | null {
+  if (!session || typeof session !== "object") return null;
+  const s = session as Record<string, unknown>;
+
+  const direct = s["role"];
+  if (typeof direct === "string") return direct;
+
+  const user = s["user"];
+  if (user && typeof user === "object") {
+    const u = user as Record<string, unknown>;
+    const nested = u["role"];
+    if (typeof nested === "string") return nested;
+  }
+
+  return null;
+}
+
+function getAgencyNameFromSaveResult(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  const agencyName = r["agencyName"];
+  return typeof agencyName === "string" && agencyName ? agencyName : null;
+}
+
+function getLocationIdFromCreateResult(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  const location = r["location"];
+  if (!location || typeof location !== "object") return null;
+  const l = location as Record<string, unknown>;
+  const id = l["id"];
+  return typeof id === "string" && id ? id : null;
+}
+
 const emptyForm: UserFormData = {
   username: "",
   password: "",
@@ -115,10 +158,10 @@ function SettingsTab() {
     if (!token.trim()) { toast.error("Please enter an agency token"); return; }
     try {
       const result = await saveToken.mutateAsync(token.trim());
-      toast.success(`Connected to ${(result as any).agencyName || "agency"}`);
+      toast.success(`Connected to ${getAgencyNameFromSaveResult(result) || "agency"}`);
       setToken("");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to verify token");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err) || "Failed to verify token");
     }
   };
 
@@ -201,7 +244,6 @@ function SettingsTab() {
 
 // ─── Users Tab ─────────────────────────────────────────────
 function UsersTab() {
-  const { data: session } = useSession();
   const { data, isLoading } = useAdminUsers();
   const { data: settings } = useAgencySettings();
   const { data: locationsData } = useGhlLocations(!!settings?.hasToken);
@@ -259,7 +301,7 @@ function UsersTab() {
   const handleSave = async () => {
     try {
       let locationId = form.ghlLocationId;
-      let accessToken = form.ghlAccessToken;
+      const accessToken = form.ghlAccessToken;
 
       // If creating a new location
       if (form.locationMode === "create" && form.newLocationName) {
@@ -268,7 +310,7 @@ function UsersTab() {
           email: form.newLocationEmail || undefined,
           phone: form.newLocationPhone || undefined,
         });
-        locationId = (result as any).location?.id || "";
+        locationId = getLocationIdFromCreateResult(result) || "";
         toast.success(`Created location: ${form.newLocationName}`);
       }
 
@@ -297,8 +339,8 @@ function UsersTab() {
         toast.success("User created");
       }
       setDialogOpen(false);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to save");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err) || "Failed to save");
     }
   };
 
@@ -309,8 +351,8 @@ function UsersTab() {
       toast.success("User deleted");
       setDeleteDialogOpen(false);
       setDeletingId(null);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to delete user");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err) || "Failed to delete user");
     }
   };
 
@@ -350,7 +392,7 @@ function UsersTab() {
             ) : users.length === 0 ? (
               <tr>
                 <td colSpan={5} className="text-center py-8 text-sm text-gray-400 dark:text-gray-500">
-                  No users yet. Click "Add User" to create one.
+                  No users yet. Click &quot;Add User&quot; to create one.
                 </td>
               </tr>
             ) : (
@@ -640,7 +682,7 @@ function AdminDashboard() {
 // ─── Main ──────────────────────────────────────────────────
 export default function AdminPage() {
   const { data: session, status } = useSession();
-  const isAdmin = (session?.user as any)?.role === "admin";
+  const isAdmin = getSessionRole(session) === "admin";
 
   if (status === "loading") {
     return (

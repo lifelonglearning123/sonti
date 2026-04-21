@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { userQueries } from "@/lib/db";
+import { settingsQueries, userQueries } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 
@@ -59,19 +59,43 @@ function getSessionLocationId(session: unknown): string | null {
   return null;
 }
 
+function parseLocationList(raw: string | undefined) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function uniq(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+async function getAllowedLocationIds(session: unknown) {
+  const adminLocationId = getSessionLocationId(session);
+  if (!adminLocationId) return null;
+  const raw = await settingsQueries.get(`childLocations:${adminLocationId}`);
+  const children = parseLocationList(raw);
+  return uniq([adminLocationId, ...children]);
+}
+
 export async function GET() {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const adminLocationId = getSessionLocationId(session);
-  const users = (adminLocationId ? await userQueries.findAllByLocationId(adminLocationId) : await userQueries.findAll()).map((u) => ({
+  const allowed = await getAllowedLocationIds(session);
+  const users = (await userQueries.findAll())
+    .filter((u) => (allowed ? (u.ghlLocationId ? allowed.includes(u.ghlLocationId) : false) : true))
+    .map((u) => ({
     id: u.id,
     username: u.username,
     role: u.role,
     ghlLocationId: u.ghlLocationId,
     hasToken: !!u.ghlAccessToken,
     createdAt: u.createdAt,
-  }));
+    }));
 
   return Response.json({ users });
 }
@@ -80,8 +104,6 @@ export async function POST(req: Request) {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const adminLocationId = getSessionLocationId(session);
-
   const body = await req.json();
   const { username, password, role, ghlLocationId, ghlAccessToken } = body;
 
@@ -89,11 +111,11 @@ export async function POST(req: Request) {
     return Response.json({ error: "Username and password are required" }, { status: 400 });
   }
 
-  if (adminLocationId && ghlLocationId && ghlLocationId !== adminLocationId) {
+  const effectiveLocationId = ghlLocationId || null;
+  const allowed = await getAllowedLocationIds(session);
+  if (allowed && effectiveLocationId && !allowed.includes(effectiveLocationId)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
-
-  const effectiveLocationId = adminLocationId || ghlLocationId || null;
 
   const existing = await userQueries.findByUsername(username);
   if (existing) {

@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { userQueries } from "@/lib/db";
+import { settingsQueries, userQueries } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { NextRequest } from "next/server";
 
@@ -58,15 +58,38 @@ function getSessionLocationId(session: unknown): string | null {
   return null;
 }
 
+function parseLocationList(raw: string | undefined) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function uniq(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+async function getAllowedLocationIds(session: unknown) {
+  const adminLocationId = getSessionLocationId(session);
+  if (!adminLocationId) return null;
+  const raw = await settingsQueries.get(`childLocations:${adminLocationId}`);
+  const children = parseLocationList(raw);
+  return uniq([adminLocationId, ...children]);
+}
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const adminLocationId = getSessionLocationId(session);
   const { id } = await params;
   const user = await userQueries.findById(id);
   if (!user) return Response.json({ error: "User not found" }, { status: 404 });
-  if (adminLocationId && user.ghlLocationId !== adminLocationId) {
+
+  const allowed = await getAllowedLocationIds(session);
+  if (allowed && (!user.ghlLocationId || !allowed.includes(user.ghlLocationId))) {
     return Response.json({ error: "User not found" }, { status: 404 });
   }
 
@@ -86,7 +109,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const adminLocationId = getSessionLocationId(session);
   const { id } = await params;
   const body = await req.json();
   const data: Record<string, unknown> = {};
@@ -99,12 +121,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const existingUser = await userQueries.findById(id);
   if (!existingUser) return Response.json({ error: "User not found" }, { status: 404 });
-  if (adminLocationId && existingUser.ghlLocationId !== adminLocationId) {
+
+  const allowed = await getAllowedLocationIds(session);
+  if (allowed && (!existingUser.ghlLocationId || !allowed.includes(existingUser.ghlLocationId))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
-
-  if (adminLocationId && body.ghlLocationId !== undefined && body.ghlLocationId !== adminLocationId) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (allowed && body.ghlLocationId !== undefined) {
+    const nextLoc = typeof body.ghlLocationId === "string" ? body.ghlLocationId : "";
+    if (!nextLoc || !allowed.includes(nextLoc)) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   // Verify GHL credentials if both are provided
@@ -127,17 +153,16 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const adminLocationId = getSessionLocationId(session);
   const { id } = await params;
   const user = await userQueries.findById(id);
   if (!user) return Response.json({ error: "User not found" }, { status: 404 });
-  if (adminLocationId && user.ghlLocationId !== adminLocationId) {
+
+  const allowed = await getAllowedLocationIds(session);
+  if (allowed && (!user.ghlLocationId || !allowed.includes(user.ghlLocationId))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const adminCount = adminLocationId
-    ? await userQueries.countByRoleAndLocationId("admin", adminLocationId)
-    : await userQueries.countByRole("admin");
+  const adminCount = await userQueries.countByRole("admin");
   if (user?.role === "admin" && adminCount <= 1) {
     return Response.json({ error: "Cannot delete the last admin user" }, { status: 400 });
   }

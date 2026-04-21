@@ -27,6 +27,10 @@ function getSessionRole(session: unknown): string | null {
   return null;
 }
 
+function asString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
 function getSessionLocationId(session: unknown): string | null {
   if (!session || typeof session !== "object") return null;
   const s = session as Record<string, unknown>;
@@ -44,8 +48,28 @@ function getSessionLocationId(session: unknown): string | null {
   return null;
 }
 
-function asString(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
+function parseLocationList(raw: string | undefined) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function uniq(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+async function getAllowedLocationIds(session: unknown) {
+  const adminLocationId = getSessionLocationId(session);
+  if (!adminLocationId) return null;
+
+  const key = `childLocations:${adminLocationId}`;
+  const raw = await settingsQueries.get(key);
+  const children = parseLocationList(raw);
+  return uniq([adminLocationId, ...children]);
 }
 
 async function getAgencyHeaders() {
@@ -63,7 +87,6 @@ export async function GET() {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const adminLocationId = getSessionLocationId(session);
   const headers = await getAgencyHeaders();
   if (!headers) {
     return Response.json({ error: "Agency token not configured. Go to Settings first." }, { status: 400 });
@@ -107,10 +130,13 @@ export async function GET() {
         };
       })
       .filter((loc): loc is NonNullable<typeof loc> => !!loc)
-      .filter((loc) => (adminLocationId ? loc.id === adminLocationId : true));
+      .filter((loc) => !!loc);
 
-    return Response.json({ locations });
-  } catch (error) {
+    const allowed = await getAllowedLocationIds(session);
+    const filtered = allowed ? locations.filter((l) => allowed.includes(l.id)) : locations;
+
+    return Response.json({ locations: filtered });
+  } catch {
     return Response.json({ error: "Could not reach GHL API" }, { status: 500 });
   }
 }
@@ -119,11 +145,6 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await requireAdmin();
   if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
-
-  const adminLocationId = getSessionLocationId(session);
-  if (adminLocationId) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const headers = await getAgencyHeaders();
   if (!headers) {
@@ -170,6 +191,16 @@ export async function POST(req: Request) {
     const data = await res.json();
     const location = data.location || data;
 
+    const adminLocationId = getSessionLocationId(session);
+    if (adminLocationId) {
+      const key = `childLocations:${adminLocationId}`;
+      const raw = await settingsQueries.get(key);
+      const current = parseLocationList(raw);
+      const idValue = typeof location.id === "string" ? location.id : "";
+      const next = uniq([...current, idValue]);
+      await settingsQueries.set(key, JSON.stringify(next));
+    }
+
     return Response.json({
       location: {
         id: location.id,
@@ -177,7 +208,7 @@ export async function POST(req: Request) {
         email: location.email,
       },
     }, { status: 201 });
-  } catch (error) {
+  } catch {
     return Response.json({ error: "Could not reach GHL API" }, { status: 500 });
   }
 }

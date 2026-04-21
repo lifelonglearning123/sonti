@@ -1,22 +1,52 @@
 import { auth } from "@/lib/auth";
+import { userQueries } from "@/lib/db";
 import { NextRequest } from "next/server";
 
 const GHL_BASE_URL = "https://services.leadconnectorhq.com";
 
+function getSessionAccessToken(session: unknown): string | null {
+  if (!session || typeof session !== "object") return null;
+  const s = session as Record<string, unknown>;
+  const direct = s["accessToken"];
+  if (typeof direct === "string" && direct) return direct;
+  const user = s["user"];
+  if (user && typeof user === "object") {
+    const u = user as Record<string, unknown>;
+    const nested = u["accessToken"];
+    if (typeof nested === "string" && nested) return nested;
+  }
+  return null;
+}
+
+function getSessionLocationId(session: unknown): string | null {
+  if (!session || typeof session !== "object") return null;
+  const s = session as Record<string, unknown>;
+  const direct = s["locationId"];
+  if (typeof direct === "string" && direct) return direct;
+  const user = s["user"];
+  if (user && typeof user === "object") {
+    const u = user as Record<string, unknown>;
+    const nested = u["locationId"];
+    if (typeof nested === "string" && nested) return nested;
+  }
+  return null;
+}
+
 async function proxyToGHL(req: NextRequest) {
   const session = await auth();
-  console.log("[GHL Proxy] Session:", JSON.stringify({
-    hasSession: !!session,
-    hasAccessToken: !!(session as any)?.accessToken,
-    locationId: (session as any)?.locationId,
-    tokenPreview: (session as any)?.accessToken?.substring(0, 10) + "...",
-  }));
-
-  if (!session || !(session as any).accessToken) {
-    return Response.json({ error: "Unauthorized", debug: "No access token in session" }, { status: 401 });
+  let accessToken = getSessionAccessToken(session);
+  if (!accessToken) {
+    const locationId = getSessionLocationId(session);
+    if (locationId) {
+      const adminForLocation = await userQueries.findAdminWithTokenByLocationId(locationId);
+      accessToken = adminForLocation?.ghlAccessToken || null;
+    }
   }
 
-  const accessToken = (session as any).accessToken as string;
+  if (!accessToken) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   let pathSegments = req.nextUrl.pathname.replace("/api/ghl/", "");
 
   // GHL API requires trailing slash on certain root-level list endpoints

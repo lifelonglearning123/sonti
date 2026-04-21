@@ -58,6 +58,19 @@ export const userQueries = {
     return user ? toDbUser(user) : undefined;
   },
 
+  async findAdminWithTokenByLocationId(ghlLocationId: string): Promise<DbUser | undefined> {
+    const prisma = getPrisma();
+    const user = await prisma.user.findFirst({
+      where: {
+        role: "admin",
+        ghlLocationId,
+        ghlAccessToken: { not: null },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    return user ? toDbUser(user) : undefined;
+  },
+
   async findAll(): Promise<DbUser[]> {
     const prisma = getPrisma();
     const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" } });
