@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useActiveLocationId } from "@/hooks/use-me";
 import { useRouter } from "next/navigation";
 import { useContacts, useDeleteContact, useLocationTags } from "@/hooks/use-contacts";
 import { ContactTable, type SortField, type SortDirection } from "@/components/contacts/contact-table";
@@ -17,7 +17,6 @@ import { getInitials } from "@/lib/utils";
 import type { Contact } from "@/types/contact";
 
 export default function ContactsPage() {
-  const { data: session } = useSession();
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -30,7 +29,7 @@ export default function ContactsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [recentContactIds, setRecentContactIds] = useState<string[]>([]);
 
-  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
+  const locationId = useActiveLocationId() || "";
   const { data, isLoading } = useContacts(locationId, search, page);
   const deleteContact = useDeleteContact();
   const { data: tagsData } = useLocationTags(locationId);

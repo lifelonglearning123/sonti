@@ -6,18 +6,117 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id             String   @id @default(cuid())
-  username       String   @unique
-  passwordHash   String
-  role           String   @default("user")
-  ghlLocationId  String?
-  ghlAccessToken String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+enum PlatformRole {
+  user
+  superadmin
 }
 
-model Settings {
-  key   String @id
-  value String
+enum OrgRole {
+  owner
+  admin
+  member
+}
+
+enum PlanTier {
+  free
+  starter
+  pro
+}
+
+/// A tenant. One agency = one Organization.
+model Organization {
+  id           String   @id @default(uuid())
+  name         String
+  slug         String   @unique
+  plan         PlanTier @default(free)
+  isActive     Boolean  @default(true)
+  brandName    String?
+  brandColor   String?
+  brandLogoUrl String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships    Membership[]
+  ghlConnection  GhlConnection?
+  locations      OrgLocation[]
+  locationTokens GhlLocationToken[]
+}
+
+/// 1:1 with Supabase auth.users. `id` == auth.users.id (the JWT `sub`).
+/// Owns platform-level identity (super-admin) and is the link target for memberships.
+model Profile {
+  id           String       @id
+  email        String       @unique
+  fullName     String?
+  platformRole PlatformRole @default(user)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  memberships Membership[]
+}
+
+/// A profile's role within a specific organization.
+model Membership {
+  id             String   @id @default(uuid())
+  profileId      String
+  organizationId String
+  role           OrgRole  @default(member)
+  /// GHL sub-account this member is scoped to (optional; owners/admins switch freely).
+  ghlLocationId  String?
+  createdAt      DateTime @default(now())
+
+  profile      Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, organizationId])
+  @@index([organizationId])
+}
+
+/// Per-org GHL agency OAuth connection. Tokens stored encrypted at rest.
+model GhlConnection {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  companyId      String
+  agencyName     String?
+  accessToken    String
+  refreshToken   String
+  scope          String?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/// A GHL sub-account (location) that belongs to an organization.
+model OrgLocation {
+  id             String   @id @default(uuid())
+  organizationId String
+  ghlLocationId  String
+  name           String?
+  createdAt      DateTime @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tokens       GhlLocationToken[]
+
+  @@unique([organizationId, ghlLocationId])
+  @@index([organizationId])
+}
+
+/// Per-org cached, minted location access token. Tokens stored encrypted at rest.
+model GhlLocationToken {
+  id             String   @id @default(uuid())
+  organizationId String
+  ghlLocationId  String
+  accessToken    String
+  refreshToken   String?
+  companyId      String?
+  expiresAt      DateTime
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orgLocation  OrgLocation? @relation(fields: [organizationId, ghlLocationId], references: [organizationId, ghlLocationId])
+
+  @@unique([organizationId, ghlLocationId])
+  @@index([organizationId])
 }

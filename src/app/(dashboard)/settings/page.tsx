@@ -1,6 +1,8 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useMe, useActiveLocationId } from "@/hooks/use-me";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   Building2,
   Key,
@@ -21,9 +23,17 @@ import { toast } from "sonner";
 import { Workflow } from "lucide-react";
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
-  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
+  const router = useRouter();
+  const { data: me } = useMe();
+  const locationId = useActiveLocationId() || "";
   const [copied, setCopied] = useState(false);
+
+  const handleSignOut = async () => {
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   const maskedLocationId = locationId
     ? `${locationId.slice(0, 6)}${"*".repeat(Math.max(0, locationId.length - 10))}${locationId.slice(-4)}`
@@ -56,9 +66,9 @@ export default function SettingsPage() {
         <CardContent className="p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">Location Name</p>
+              <p className="text-sm font-medium text-gray-900">Workspace</p>
               <p className="text-sm text-gray-500">
-                {session?.user?.name || "GoHighLevel Location"}
+                {me?.organization?.name || "—"}
               </p>
             </div>
             <Badge variant="secondary">Active</Badge>
@@ -68,7 +78,7 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm font-medium text-gray-900">Email</p>
               <p className="text-sm text-gray-500">
-                {session?.user?.email || "Not set"}
+                {me?.email || "Not set"}
               </p>
             </div>
           </div>
@@ -118,16 +128,16 @@ export default function SettingsPage() {
           <Separator />
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">
-              To disconnect, sign out of your account.
+              Sign out of your account on this device.
             </p>
             <Button
               variant="outline"
               size="sm"
               className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={handleSignOut}
             >
               <LogOut className="h-3.5 w-3.5 mr-1.5" />
-              Disconnect
+              Sign out
             </Button>
           </div>
         </CardContent>
@@ -144,14 +154,11 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm font-medium text-gray-900">Theme</p>
               <p className="text-sm text-gray-500">
-                Light mode is the current default.
+                Switch between light and dark from the top bar.
               </p>
             </div>
-            <Badge variant="outline">Light</Badge>
+            <Badge variant="outline">Light / Dark</Badge>
           </div>
-          <p className="text-xs text-gray-400 mt-3">
-            Dark mode and custom themes coming soon.
-          </p>
         </CardContent>
       </Card>
 

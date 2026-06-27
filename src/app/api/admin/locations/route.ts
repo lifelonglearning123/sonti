@@ -1,106 +1,56 @@
-import { auth } from "@/lib/auth";
-import { settingsQueries } from "@/lib/db";
+import { getOrgAdminContext } from "@/lib/dal";
+import { prisma } from "@/lib/db";
+import { getValidAgencyToken } from "@/lib/ghl-tokens";
 
 const GHL_BASE_URL = "https://services.leadconnectorhq.com";
-
-async function requireAdmin() {
-  const session = await auth();
-  const role = getSessionRole(session);
-  if (role !== "admin") return null;
-  return session;
-}
-
-function getSessionRole(session: unknown): string | null {
-  if (!session || typeof session !== "object") return null;
-  const s = session as Record<string, unknown>;
-
-  const direct = s["role"];
-  if (typeof direct === "string") return direct;
-
-  const user = s["user"];
-  if (user && typeof user === "object") {
-    const u = user as Record<string, unknown>;
-    const nested = u["role"];
-    if (typeof nested === "string") return nested;
-  }
-
-  return null;
-}
 
 function asString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
-function getSessionLocationId(session: unknown): string | null {
-  if (!session || typeof session !== "object") return null;
-  const s = session as Record<string, unknown>;
+/** Upsert the org's sub-accounts so they appear in the location switcher. */
+async function syncOrgLocations(
+  organizationId: string,
+  locations: { id: string; name: string }[]
+) {
+  await Promise.all(
+    locations.map((loc) =>
+      prisma.orgLocation.upsert({
+        where: {
+          organizationId_ghlLocationId: { organizationId, ghlLocationId: loc.id },
+        },
+        create: { organizationId, ghlLocationId: loc.id, name: loc.name },
+        update: { name: loc.name },
+      })
+    )
+  );
+}
 
-  const direct = s["locationId"];
-  if (typeof direct === "string" && direct) return direct;
+// List all sub-accounts (locations) under the org's connected GHL agency.
+export async function GET() {
+  const ctx = await getOrgAdminContext();
+  if (!ctx?.organizationId) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const user = s["user"];
-  if (user && typeof user === "object") {
-    const u = user as Record<string, unknown>;
-    const nested = u["locationId"];
-    if (typeof nested === "string" && nested) return nested;
+  const agency = await getValidAgencyToken(ctx.organizationId);
+  if (!agency) {
+    return Response.json(
+      { error: "GHL is not connected. Connect your agency first." },
+      { status: 400 }
+    );
   }
 
-  return null;
-}
-
-function parseLocationList(raw: string | undefined) {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-function uniq(values: string[]) {
-  return Array.from(new Set(values.filter(Boolean)));
-}
-
-async function getAllowedLocationIds(session: unknown) {
-  const adminLocationId = getSessionLocationId(session);
-  if (!adminLocationId) return null;
-
-  const key = `childLocations:${adminLocationId}`;
-  const raw = await settingsQueries.get(key);
-  const children = parseLocationList(raw);
-  return uniq([adminLocationId, ...children]);
-}
-
-async function getAgencyHeaders() {
-  const token = await settingsQueries.get("agencyToken");
-  if (!token) return null;
-  return {
-    Authorization: `Bearer ${token}`,
+  const headers = {
+    Authorization: `Bearer ${agency.accessToken}`,
     Version: "2021-07-28",
     "Content-Type": "application/json",
   };
-}
-
-// List all sub-accounts (locations) from GHL agency
-export async function GET() {
-  const session = await requireAdmin();
-  if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
-
-  const headers = await getAgencyHeaders();
-  if (!headers) {
-    return Response.json({ error: "Agency token not configured. Go to Settings first." }, { status: 400 });
-  }
-
-  const companyId = await settingsQueries.get("companyId");
 
   try {
     let url = `${GHL_BASE_URL}/locations/search?limit=100`;
-    if (companyId && companyId !== "auto") {
-      url += `&companyId=${companyId}`;
+    if (agency.companyId && agency.companyId !== "auto") {
+      url += `&companyId=${agency.companyId}`;
     }
     const res = await fetch(url, { headers });
-
     if (!res.ok) {
       const text = await res.text();
       console.log("[Locations API] GHL error:", res.status, text.substring(0, 200));
@@ -114,11 +64,9 @@ export async function GET() {
       .map((loc) => {
         if (!loc || typeof loc !== "object") return null;
         const r = loc as Record<string, unknown>;
-
         const id = asString(r.id);
         const name = asString(r.name);
         if (!id || !name) return null;
-
         return {
           id,
           name,
@@ -129,36 +77,40 @@ export async function GET() {
           country: asString(r.country),
         };
       })
-      .filter((loc): loc is NonNullable<typeof loc> => !!loc)
-      .filter((loc) => !!loc);
+      .filter((loc): loc is NonNullable<typeof loc> => !!loc);
 
-    const allowed = await getAllowedLocationIds(session);
-    const filtered = allowed ? locations.filter((l) => allowed.includes(l.id)) : locations;
+    await syncOrgLocations(
+      ctx.organizationId,
+      locations.map((l) => ({ id: l.id, name: l.name }))
+    );
 
-    return Response.json({ locations: filtered });
+    return Response.json({ locations });
   } catch {
     return Response.json({ error: "Could not reach GHL API" }, { status: 500 });
   }
 }
 
-// Create a new sub-account (location) in GHL
+// Create a new sub-account (location) in GHL and register it to the org.
 export async function POST(req: Request) {
-  const session = await requireAdmin();
-  if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
+  const ctx = await getOrgAdminContext();
+  if (!ctx?.organizationId) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const headers = await getAgencyHeaders();
-  if (!headers) {
-    return Response.json({ error: "Agency token not configured" }, { status: 400 });
+  const agency = await getValidAgencyToken(ctx.organizationId);
+  if (!agency) {
+    return Response.json({ error: "GHL is not connected" }, { status: 400 });
   }
-
-  const companyId = await settingsQueries.get("companyId");
 
   const body = await req.json();
   const { name, email, phone, address, city, country } = body;
-
   if (!name) {
     return Response.json({ error: "Business name is required" }, { status: 400 });
   }
+
+  const headers = {
+    Authorization: `Bearer ${agency.accessToken}`,
+    Version: "2021-07-28",
+    "Content-Type": "application/json",
+  };
 
   try {
     const payload: Record<string, string | undefined> = {
@@ -169,7 +121,7 @@ export async function POST(req: Request) {
       city: city || undefined,
       country: country || undefined,
     };
-    if (companyId && companyId !== "auto") payload.companyId = companyId;
+    if (agency.companyId && agency.companyId !== "auto") payload.companyId = agency.companyId;
 
     const res = await fetch(`${GHL_BASE_URL}/locations/`, {
       method: "POST",
@@ -190,24 +142,25 @@ export async function POST(req: Request) {
 
     const data = await res.json();
     const location = data.location || data;
+    const id = asString(location.id);
 
-    const adminLocationId = getSessionLocationId(session);
-    if (adminLocationId) {
-      const key = `childLocations:${adminLocationId}`;
-      const raw = await settingsQueries.get(key);
-      const current = parseLocationList(raw);
-      const idValue = typeof location.id === "string" ? location.id : "";
-      const next = uniq([...current, idValue]);
-      await settingsQueries.set(key, JSON.stringify(next));
+    if (id) {
+      await prisma.orgLocation.upsert({
+        where: {
+          organizationId_ghlLocationId: {
+            organizationId: ctx.organizationId,
+            ghlLocationId: id,
+          },
+        },
+        create: { organizationId: ctx.organizationId, ghlLocationId: id, name: location.name || name },
+        update: { name: location.name || name },
+      });
     }
 
-    return Response.json({
-      location: {
-        id: location.id,
-        name: location.name,
-        email: location.email,
-      },
-    }, { status: 201 });
+    return Response.json(
+      { location: { id, name: location.name, email: location.email } },
+      { status: 201 }
+    );
   } catch {
     return Response.json({ error: "Could not reach GHL API" }, { status: 500 });
   }

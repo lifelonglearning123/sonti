@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useMe } from "@/hooks/use-me";
 import {
   Tooltip,
   TooltipContent,
@@ -33,6 +34,8 @@ const navItems = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const { data: me } = useMe();
+  const brandName = me?.organization?.brandName || "Sonti";
 
   const isItemActive = (item: (typeof navItems)[0]) => {
     return pathname.startsWith(item.href);
@@ -59,13 +62,13 @@ export function Sidebar() {
           </div>
           <span
             className={cn(
-              "text-lg font-bold text-gray-900 dark:text-white tracking-tight transition-all duration-300",
+              "text-lg font-bold text-gray-900 dark:text-white tracking-tight transition-all duration-300 truncate",
               collapsed
                 ? "opacity-0 w-0 overflow-hidden"
                 : "opacity-100"
             )}
           >
-            Sonti
+            {brandName}
           </span>
         </div>
 

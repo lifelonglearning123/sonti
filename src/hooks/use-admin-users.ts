@@ -2,12 +2,12 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-interface AdminUser {
-  id: string;
-  username: string;
-  role: string;
+export interface AdminMember {
+  id: string; // profileId
+  email: string;
+  fullName: string | null;
+  role: "owner" | "admin" | "member";
   ghlLocationId: string | null;
-  hasToken: boolean;
   createdAt: string;
 }
 
@@ -24,31 +24,43 @@ async function adminFetch(path: string, options?: RequestInit) {
 }
 
 export function useAdminUsers() {
-  return useQuery<{ users: AdminUser[] }>({
+  return useQuery<{ users: AdminMember[] }>({
     queryKey: ["admin-users"],
     queryFn: () => adminFetch("users"),
   });
 }
 
-export function useCreateUser() {
+export function useInviteMember() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { username: string; password: string; role?: string; ghlLocationId?: string; ghlAccessToken?: string }) =>
-      adminFetch("users", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: {
+      email: string;
+      fullName?: string;
+      role?: "admin" | "member";
+      ghlLocationId?: string;
+    }) => adminFetch("users", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 }
 
-export function useUpdateUser() {
+export function useUpdateMember() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; username?: string; password?: string; role?: string; ghlLocationId?: string; ghlAccessToken?: string }) =>
-      adminFetch(`users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string;
+      fullName?: string;
+      role?: "admin" | "member";
+      ghlLocationId?: string | null;
+      password?: string;
+    }) => adminFetch(`users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 }
 
-export function useDeleteUser() {
+export function useDeleteMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => adminFetch(`users/${id}`, { method: "DELETE" }),
@@ -56,7 +68,7 @@ export function useDeleteUser() {
   });
 }
 
-// Agency settings hooks
+// ─── Agency (GHL) connection ────────────────────────────────
 interface AgencySettings {
   hasToken: boolean;
   companyId: string | null;
@@ -78,12 +90,13 @@ export function useSaveAgencyToken() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agency-settings"] });
       qc.invalidateQueries({ queryKey: ["ghl-locations"] });
+      qc.invalidateQueries({ queryKey: ["me"] });
     },
   });
 }
 
-// GHL locations hooks
-interface GhlLocation {
+// ─── GHL locations ──────────────────────────────────────────
+export interface GhlLocation {
   id: string;
   name: string;
   email: string | null;
@@ -104,8 +117,17 @@ export function useGhlLocations(enabled = true) {
 export function useCreateGhlLocation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; email?: string; phone?: string; address?: string; city?: string; country?: string }) =>
-      adminFetch("locations", { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["ghl-locations"] }),
+    mutationFn: (data: {
+      name: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      city?: string;
+      country?: string;
+    }) => adminFetch("locations", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ghl-locations"] });
+      qc.invalidateQueries({ queryKey: ["me"] });
+    },
   });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useActiveLocationId } from "@/hooks/use-me";
 import { useConversations, useMessages } from "@/hooks/use-conversations";
 import { ConversationList } from "@/components/conversations/conversation-list";
 import { MessageThread } from "@/components/conversations/message-thread";
@@ -11,8 +11,7 @@ import { cn } from "@/lib/utils";
 import type { Conversation } from "@/types/conversation";
 
 export default function ConversationsPage() {
-  const { data: session } = useSession();
-  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
+  const locationId = useActiveLocationId() || "";
   const [search, setSearch] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showContextPanel, setShowContextPanel] = useState(true);

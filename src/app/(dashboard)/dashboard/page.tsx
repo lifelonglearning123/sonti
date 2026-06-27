@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useMe, useActiveLocationId } from "@/hooks/use-me";
 import {
   Users,
   Kanban,
@@ -105,8 +105,8 @@ function StatCard({
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { data: session } = useSession();
-  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
+  const { data: me } = useMe();
+  const locationId = useActiveLocationId() || "";
 
   // Fetch data
   const { data: contactsData, isLoading: contactsLoading } = useContacts(
@@ -185,7 +185,7 @@ export default function DashboardPage() {
       {/* Welcome */}
       <div>
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-          Welcome back{session?.user?.name ? `, ${session.user.name.split(" ")[0]}` : ""}
+          Welcome back{me?.fullName ? `, ${me.fullName.split(" ")[0]}` : ""}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Here is what is happening across your CRM today.
