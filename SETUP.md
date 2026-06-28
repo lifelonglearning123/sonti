@@ -95,10 +95,31 @@ npm run dev          # http://localhost:3001
 
 ## Deploying to Vercel
 
-- Set all env vars above in the Vercel project.
-- Add a build/release step that runs migrations against the **direct** URL:
-  `npm run db:migrate` (`prisma migrate deploy`).
-- The runtime uses the pooled `DATABASE_URL` (`?pgbouncer=true&connection_limit=1`).
+Replace `https://sonti.vercel.app` below with the domain Vercel assigns the project.
+
+1. **Import** the GitHub repo into Vercel (Framework: Next.js).
+2. **Environment variables** (Production): set everything from `.env.example`, with:
+   - `DATABASE_URL` → **transaction pooler**, `…pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`
+   - `DIRECT_URL` → direct `…:5432/postgres` (used by migrations)
+   - `NEXTAUTH_URL=https://sonti.vercel.app`
+   - `GHL_OAUTH_REDIRECT_URI=https://sonti.vercel.app/api/oauth/callback`
+   - `TOKEN_ENCRYPTION_KEY` → **the exact same value used locally** (so existing
+     encrypted tokens still decrypt)
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+     `SUPABASE_SERVICE_ROLE_KEY`, `GHL_AGENCY_API_TOKEN`, `GHL_COMPANY_ID`,
+     `GHL_OAUTH_CLIENT_ID`, `GHL_OAUTH_CLIENT_SECRET`
+   - ⚠️ Vercel does **not** expand `${VAR}` in env values — use full literal URLs.
+3. **Migrations** run automatically: the `vercel-build` script runs
+   `prisma migrate deploy && next build` (uses `DIRECT_URL`).
+4. **Supabase** → Authentication → URL Configuration:
+   - Site URL: `https://sonti.vercel.app`
+   - Redirect URLs: add `https://sonti.vercel.app/**` (keep localhost for dev)
+5. **GHL marketplace app** → Redirect URLs: add
+   `https://sonti.vercel.app/api/oauth/callback`
+6. Deploy, then sign in at `https://sonti.vercel.app/login`.
+
+The runtime uses the pooled `DATABASE_URL` (`?pgbouncer=true&connection_limit=1`);
+migrations use `DIRECT_URL`.
 
 ## Tenant isolation
 
