@@ -2,16 +2,14 @@ import { getSuperAdminContext } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { encryptSecret } from "@/lib/crypto";
+import { baseUrlFromRequest } from "@/lib/request-url";
 import {
   createAgencySubAccount,
   isAgencyConnected,
+  listAgencySubAccounts,
   verifyLocationToken,
 } from "@/lib/ghl-tokens";
 import type { PlanTier } from "@prisma/client";
-
-function appBaseUrl(): string {
-  return (process.env.NEXTAUTH_URL || "").replace(/\/$/, "");
-}
 
 function slugify(input: string): string {
   return input
@@ -78,11 +76,14 @@ export async function POST(req: Request) {
   const ownerName: string | null = body?.ownerName || null;
   const plan: PlanTier = VALID_PLANS.includes(body?.plan) ? body.plan : "free";
   const slug = slugify(body?.slug || name);
-  // Sub-account details (default the business name to the org name).
+  // "create" makes a new GHL sub-account; "existing" binds one that already exists.
+  const mode: "create" | "existing" = body?.mode === "existing" ? "existing" : "create";
+  const existingLocationId: string = (body?.ghlLocationId || "").trim();
+  // Sub-account details (for create mode; default business name to the org name).
   const subName: string = (body?.subAccountName || name).trim();
   const subEmail: string | undefined = body?.subAccountEmail || ownerEmail || undefined;
   const subPhone: string | undefined = body?.subAccountPhone || undefined;
-  // Optional: the new sub-account's own location PIT (for CRM data access).
+  // The sub-account's own location PIT (for CRM data access).
   const locationApiToken: string = (body?.locationApiToken || "").trim();
 
   if (!name) return Response.json({ error: "Organization name is required" }, { status: 400 });
@@ -92,20 +93,47 @@ export async function POST(req: Request) {
   const slugTaken = await prisma.organization.findUnique({ where: { slug } });
   if (slugTaken) return Response.json({ error: "That slug is already taken" }, { status: 409 });
 
-  // 1. Create the GHL sub-account under the agency.
+  // 1. Resolve the GHL sub-account — either create a new one or bind an existing one.
   let subAccount: { id: string; name: string };
-  try {
-    subAccount = await createAgencySubAccount({
-      name: subName,
-      email: subEmail,
-      phone: subPhone,
+  if (mode === "existing") {
+    if (!existingLocationId) {
+      return Response.json({ error: "Select a sub-account to bind" }, { status: 400 });
+    }
+    const alreadyBound = await prisma.orgLocation.findFirst({
+      where: { ghlLocationId: existingLocationId },
+      select: { id: true },
     });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to create sub-account";
-    return Response.json({ error: message }, { status: 400 });
+    if (alreadyBound) {
+      return Response.json(
+        { error: "That sub-account is already linked to a workspace" },
+        { status: 409 }
+      );
+    }
+    try {
+      const subs = await listAgencySubAccounts();
+      const found = subs.find((s) => s.id === existingLocationId);
+      if (!found) {
+        return Response.json({ error: "Sub-account not found under this agency" }, { status: 404 });
+      }
+      subAccount = { id: found.id, name: found.name };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to read sub-accounts";
+      return Response.json({ error: message }, { status: 400 });
+    }
+  } else {
+    try {
+      subAccount = await createAgencySubAccount({
+        name: subName,
+        email: subEmail,
+        phone: subPhone,
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to create sub-account";
+      return Response.json({ error: message }, { status: 400 });
+    }
   }
 
-  // Validate the location PIT (if provided) against the new sub-account.
+  // Validate the location PIT (if provided) against the resolved sub-account.
   if (locationApiToken) {
     const check = await verifyLocationToken(subAccount.id, locationApiToken);
     if (!check.valid) {
@@ -123,7 +151,7 @@ export async function POST(req: Request) {
   let createdAuthUser = false;
   if (!profile) {
     const { data, error } = await admin.auth.admin.inviteUserByEmail(ownerEmail, {
-      redirectTo: `${appBaseUrl()}/auth/callback?type=invite`,
+      redirectTo: `${baseUrlFromRequest(req)}/auth/callback?type=invite`,
       data: { fullName: ownerName },
     });
     if (error || !data?.user) {

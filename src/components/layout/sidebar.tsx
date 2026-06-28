@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,6 +13,8 @@ import {
   ChevronRight,
   Workflow,
   LayoutDashboard,
+  Shield,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMe } from "@/hooks/use-me";
@@ -23,7 +25,14 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  shortcut?: string;
+};
+
+const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, shortcut: "1" },
   { href: "/contacts", label: "Contacts", icon: Users, shortcut: "2" },
   { href: "/conversations", label: "Conversations", icon: MessageSquare, shortcut: "3" },
@@ -37,8 +46,72 @@ export function Sidebar() {
   const { data: me } = useMe();
   const brandName = me?.organization?.brandName || "Sonti";
 
-  const isItemActive = (item: (typeof navItems)[0]) => {
-    return pathname.startsWith(item.href);
+  const isOrgAdmin = me?.orgRole === "owner" || me?.orgRole === "admin";
+  const isSuperAdmin = me?.platformRole === "superadmin";
+
+  // Bottom section: role-gated admin links + Settings.
+  const bottomItems: NavItem[] = [
+    ...(isSuperAdmin
+      ? [{ href: "/superadmin", label: "Platform console", icon: Building2 }]
+      : []),
+    ...(isOrgAdmin
+      ? [{ href: "/admin", label: "Workspace admin", icon: Shield }]
+      : []),
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  const renderItem = (item: NavItem) => {
+    const isActive = pathname.startsWith(item.href);
+    const link = (
+      <Link
+        href={item.href}
+        className={cn(
+          "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+          isActive
+            ? "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400 shadow-sm shadow-blue-100/50 dark:shadow-none"
+            : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200",
+          collapsed && "justify-center px-0"
+        )}
+      >
+        {isActive && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-blue-600 dark:bg-blue-500 rounded-r-full" />
+        )}
+        <item.icon
+          className={cn(
+            "h-5 w-5 shrink-0 transition-colors duration-200",
+            isActive
+              ? "text-blue-700 dark:text-blue-400"
+              : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300"
+          )}
+        />
+        <span
+          className={cn(
+            "transition-all duration-300 flex-1",
+            collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
+          )}
+        >
+          {item.label}
+        </span>
+        {!collapsed && item.shortcut && (
+          <span className="kbd opacity-0 group-hover:opacity-100 transition-opacity">
+            {item.shortcut}
+          </span>
+        )}
+      </Link>
+    );
+
+    if (collapsed) {
+      return (
+        <Tooltip key={item.href}>
+          <TooltipTrigger asChild>{link}</TooltipTrigger>
+          <TooltipContent side="right">
+            {item.label}
+            {item.shortcut && <span className="ml-2 kbd">{item.shortcut}</span>}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+    return <div key={item.href}>{link}</div>;
   };
 
   return (
@@ -63,9 +136,7 @@ export function Sidebar() {
           <span
             className={cn(
               "text-lg font-bold text-gray-900 dark:text-white tracking-tight transition-all duration-300 truncate",
-              collapsed
-                ? "opacity-0 w-0 overflow-hidden"
-                : "opacity-100"
+              collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
             )}
           >
             {brandName}
@@ -73,115 +144,11 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map((item) => {
-            const isActive = isItemActive(item);
-            const link = (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400 shadow-sm shadow-blue-100/50 dark:shadow-none"
-                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200",
-                  collapsed && "justify-center px-0"
-                )}
-              >
-                {/* Active indicator bar */}
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-blue-600 dark:bg-blue-500 rounded-r-full" />
-                )}
-                <item.icon
-                  className={cn(
-                    "h-5 w-5 shrink-0 transition-colors duration-200",
-                    isActive
-                      ? "text-blue-700 dark:text-blue-400"
-                      : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "transition-all duration-300 flex-1",
-                    collapsed
-                      ? "opacity-0 w-0 overflow-hidden"
-                      : "opacity-100"
-                  )}
-                >
-                  {item.label}
-                </span>
-                {!collapsed && (
-                  <span className="kbd opacity-0 group-hover:opacity-100 transition-opacity">
-                    {item.shortcut}
-                  </span>
-                )}
-              </Link>
-            );
-
-            if (collapsed) {
-              return (
-                <Tooltip key={item.href}>
-                  <TooltipTrigger asChild>{link}</TooltipTrigger>
-                  <TooltipContent side="right">
-                    {item.label}
-                    <span className="ml-2 kbd">{item.shortcut}</span>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            }
-            return link;
-          })}
-        </nav>
+        <nav className="flex-1 px-3 py-4 space-y-1">{navItems.map(renderItem)}</nav>
 
         {/* Bottom */}
         <div className="px-3 py-4 border-t border-gray-100 dark:border-gray-800 space-y-1">
-          {(() => {
-            const isSettingsActive = pathname.startsWith("/settings");
-            const settingsLink = (
-              <Link
-                href="/settings"
-                className={cn(
-                  "group relative flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                  isSettingsActive
-                    ? "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400 shadow-sm shadow-blue-100/50 dark:shadow-none"
-                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200",
-                  collapsed && "justify-center px-0"
-                )}
-              >
-                {isSettingsActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-blue-600 dark:bg-blue-500 rounded-r-full" />
-                )}
-                <Settings
-                  className={cn(
-                    "h-5 w-5 shrink-0 transition-colors duration-200",
-                    isSettingsActive
-                      ? "text-blue-700 dark:text-blue-400"
-                      : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "transition-all duration-300",
-                    collapsed
-                      ? "opacity-0 w-0 overflow-hidden"
-                      : "opacity-100"
-                  )}
-                >
-                  Settings
-                </span>
-              </Link>
-            );
-
-            if (collapsed) {
-              return (
-                <Tooltip>
-                  <TooltipTrigger asChild>{settingsLink}</TooltipTrigger>
-                  <TooltipContent side="right">Settings</TooltipContent>
-                </Tooltip>
-              );
-            }
-            return settingsLink;
-          })()}
+          {bottomItems.map(renderItem)}
 
           <button
             onClick={() => setCollapsed(!collapsed)}

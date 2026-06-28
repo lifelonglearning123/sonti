@@ -1,10 +1,7 @@
 import { getOrgAdminContext } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-
-function appBaseUrl(): string {
-  return (process.env.NEXTAUTH_URL || "").replace(/\/$/, "");
-}
+import { baseUrlFromRequest } from "@/lib/request-url";
 
 /** The org's sub-account location (each org is bound to exactly one). */
 async function orgLocationId(organizationId: string): Promise<string | null> {
@@ -60,7 +57,7 @@ export async function POST(req: Request) {
 
   if (!profile) {
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${appBaseUrl()}/auth/callback?type=invite`,
+      redirectTo: `${baseUrlFromRequest(req)}/auth/callback?type=invite`,
       data: { fullName },
     });
     if (error || !data?.user) {

@@ -52,6 +52,21 @@ export function useDisconnectAgency() {
   });
 }
 
+export interface AgencySubAccount {
+  id: string;
+  name: string;
+  email: string | null;
+  bound: boolean;
+}
+
+export function useAgencySubAccounts(enabled = true) {
+  return useQuery<{ subAccounts: AgencySubAccount[] }>({
+    queryKey: ["superadmin-subaccounts"],
+    queryFn: () => saFetch("subaccounts"),
+    enabled,
+  });
+}
+
 export function useOrganizations() {
   return useQuery<{ organizations: SuperAdminOrg[] }>({
     queryKey: ["superadmin-orgs"],
@@ -68,6 +83,8 @@ export function useCreateOrganization() {
       ownerEmail: string;
       ownerName?: string;
       plan?: "free" | "starter" | "pro";
+      mode?: "create" | "existing";
+      ghlLocationId?: string;
       subAccountName?: string;
       subAccountEmail?: string;
       subAccountPhone?: string;

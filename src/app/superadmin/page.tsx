@@ -9,6 +9,7 @@ import {
   useDeleteOrganization,
   useAgencyStatus,
   useDisconnectAgency,
+  useAgencySubAccounts,
   type SuperAdminOrg,
 } from "@/hooks/use-superadmin";
 import { useMe } from "@/hooks/use-me";
@@ -57,6 +58,7 @@ export default function SuperAdminPage() {
   const { data: agency } = useAgencyStatus();
   const disconnectAgency = useDisconnectAgency();
   const createOrg = useCreateOrganization();
+  const { data: subAccountsData } = useAgencySubAccounts();
   const updateOrg = useUpdateOrganization();
   const deleteOrg = useDeleteOrganization();
 
@@ -66,6 +68,8 @@ export default function SuperAdminPage() {
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [plan, setPlan] = useState<(typeof PLANS)[number]>("free");
+  const [subMode, setSubMode] = useState<"create" | "existing">("create");
+  const [ghlLocationId, setGhlLocationId] = useState("");
   const [locationApiToken, setLocationApiToken] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<SuperAdminOrg | null>(null);
 
@@ -81,6 +85,10 @@ export default function SuperAdminPage() {
       toast.error("Organization name and owner email are required");
       return;
     }
+    if (subMode === "existing" && !ghlLocationId) {
+      toast.error("Pick the existing sub-account to link");
+      return;
+    }
     try {
       await createOrg.mutateAsync({
         name: name.trim(),
@@ -88,6 +96,8 @@ export default function SuperAdminPage() {
         ownerEmail: ownerEmail.trim(),
         ownerName: ownerName.trim() || undefined,
         plan,
+        mode: subMode,
+        ghlLocationId: subMode === "existing" ? ghlLocationId : undefined,
         locationApiToken: locationApiToken.trim() || undefined,
       });
       toast.success("Organization created — owner invited by email");
@@ -96,6 +106,8 @@ export default function SuperAdminPage() {
       setOwnerEmail("");
       setOwnerName("");
       setPlan("free");
+      setSubMode("create");
+      setGhlLocationId("");
       setLocationApiToken("");
       setDialogOpen(false);
     } catch (err) {
@@ -455,7 +467,50 @@ export default function SuperAdminPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Sub-account API token (optional)</Label>
+              <Label>GHL sub-account</Label>
+              <div className="flex gap-1">
+                {(["create", "existing"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setSubMode(m)}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-sm font-medium border transition-colors",
+                      subMode === m
+                        ? "border-[var(--accent)] bg-[var(--accent-lighter)] text-[var(--accent)]"
+                        : "border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+                    )}
+                  >
+                    {m === "create" ? "Create new" : "Link existing"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {subMode === "existing" && (
+              <div className="space-y-2">
+                <Label>Existing sub-account</Label>
+                <select
+                  aria-label="Existing sub-account"
+                  value={ghlLocationId}
+                  onChange={(e) => setGhlLocationId(e.target.value)}
+                  className="w-full h-10 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)]"
+                >
+                  <option value="">Select a sub-account…</option>
+                  {(subAccountsData?.subAccounts || []).map((s) => (
+                    <option key={s.id} value={s.id} disabled={s.bound}>
+                      {s.name}
+                      {s.bound ? " (already linked)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>
+                Sub-account API token{subMode === "existing" ? "" : " (optional)"}
+              </Label>
               <Input
                 value={locationApiToken}
                 onChange={(e) => setLocationApiToken(e.target.value)}
@@ -463,9 +518,9 @@ export default function SuperAdminPage() {
                 className="font-mono text-xs"
               />
               <p className="text-xs text-[var(--text-tertiary)]">
-                The new sub-account’s own Private Integration token (enables CRM data).
-                Leave blank if the agency is connected via OAuth, or add it later from
-                the workspace admin.
+                {subMode === "existing"
+                  ? "That sub-account's own Private Integration token (GHL → that sub-account → Settings → Private Integrations)."
+                  : "A new sub-account has no token yet — leave blank and add it later from the workspace admin (or rely on OAuth)."}
               </p>
             </div>
           </div>
