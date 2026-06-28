@@ -3,24 +3,6 @@ const GHL_VERSION = "2021-07-28";
 const GHL_OAUTH_TOKEN_URL = `${GHL_BASE_URL}/oauth/token`;
 const GHL_OAUTH_LOCATION_TOKEN_URL = `${GHL_BASE_URL}/oauth/locationToken`;
 
-export async function ghlFetch(
-  path: string,
-  accessToken: string,
-  options: RequestInit = {}
-): Promise<Response> {
-  const url = `${GHL_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Version: GHL_VERSION,
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-  return response;
-}
-
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required`);

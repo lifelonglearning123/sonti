@@ -206,7 +206,7 @@ function MembersTab() {
         <div>
           <h2 className="text-lg font-semibold text-[var(--text-primary)]">Members</h2>
           <p className="text-sm text-[var(--text-secondary)]">
-            Invite teammates to your workspace. They get access to this location's CRM.
+            Invite teammates to your workspace. They get access to this location’s CRM.
           </p>
         </div>
         <Button onClick={openInvite} size="sm">
@@ -321,7 +321,7 @@ function MembersTab() {
               />
               {!editing && (
                 <p className="text-xs text-[var(--text-tertiary)]">
-                  They'll get an email to set a password and join.
+                  They’ll get an email to set a password and join.
                 </p>
               )}
             </div>
@@ -402,7 +402,7 @@ function MembersTab() {
           </DialogHeader>
           <p className="text-sm text-[var(--text-secondary)]">
             Remove {confirmDelete?.fullName || confirmDelete?.email} from this workspace?
-            They'll lose access immediately.
+            They’ll lose access immediately.
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="ghost" onClick={() => setConfirmDelete(null)}>

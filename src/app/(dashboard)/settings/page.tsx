@@ -9,7 +9,6 @@ import {
   Palette,
   Info,
   LogOut,
-  ExternalLink,
   Shield,
   Copy,
   Check,

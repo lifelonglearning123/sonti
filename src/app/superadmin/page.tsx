@@ -463,7 +463,7 @@ export default function SuperAdminPage() {
                 className="font-mono text-xs"
               />
               <p className="text-xs text-[var(--text-tertiary)]">
-                The new sub-account's own Private Integration token (enables CRM data).
+                The new sub-account’s own Private Integration token (enables CRM data).
                 Leave blank if the agency is connected via OAuth, or add it later from
                 the workspace admin.
               </p>
@@ -489,8 +489,8 @@ export default function SuperAdminPage() {
           </DialogHeader>
           <p className="text-sm text-[var(--text-secondary)]">
             Permanently delete {confirmDelete?.name}? This removes its GHL connection,
-            locations, and all member accounts that don't belong to another workspace.
-            This can't be undone.
+            locations, and all member accounts that don’t belong to another workspace.
+            This can’t be undone.
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="ghost" onClick={() => setConfirmDelete(null)}>

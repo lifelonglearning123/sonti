@@ -54,7 +54,7 @@ export default function ResetPasswordPage() {
                 Check your email
               </h2>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                If an account exists for {email}, we've sent a link to reset your
+                If an account exists for {email}, we’ve sent a link to reset your
                 password.
               </p>
             </div>
@@ -64,7 +64,7 @@ export default function ResetPasswordPage() {
                 Reset your password
               </h2>
               <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
-                Enter your email and we'll send you a reset link.
+                Enter your email and we’ll send you a reset link.
               </p>
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                 {error && (
