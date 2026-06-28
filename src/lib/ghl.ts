@@ -37,7 +37,7 @@ export type GhlOAuthTokenResponse = {
 export function getGhlOAuthRedirectUri(): string {
   const configured = process.env.GHL_OAUTH_REDIRECT_URI;
   if (configured) return configured;
-  return `${getAppBaseUrl()}/api/ghl/oauth/callback`;
+  return `${getAppBaseUrl()}/api/oauth/callback`;
 }
 
 export function getGhlOAuthClient(): { clientId: string; clientSecret: string } {
@@ -55,17 +55,19 @@ export async function ghlExchangeAuthorizationCode(params: {
   const { clientId, clientSecret } = getGhlOAuthClient();
   const redirectUri = params.redirectUri || getGhlOAuthRedirectUri();
 
+  // GHL's /oauth/token requires application/x-www-form-urlencoded.
+  const body = new URLSearchParams();
+  body.set("client_id", clientId);
+  body.set("client_secret", clientSecret);
+  body.set("grant_type", "authorization_code");
+  body.set("code", params.code);
+  body.set("user_type", params.userType);
+  body.set("redirect_uri", redirectUri);
+
   const res = await fetch(GHL_OAUTH_TOKEN_URL, {
     method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: "authorization_code",
-      code: params.code,
-      user_type: params.userType,
-      redirect_uri: redirectUri,
-    }),
+    headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+    body,
   });
 
   const text = await res.text();
@@ -109,15 +111,20 @@ export async function ghlGetLocationAccessTokenFromAgency(params: {
   companyId: string;
   locationId: string;
 }): Promise<GhlOAuthTokenResponse> {
+  // GHL's /oauth/locationToken requires application/x-www-form-urlencoded.
+  const body = new URLSearchParams();
+  body.set("companyId", params.companyId);
+  body.set("locationId", params.locationId);
+
   const res = await fetch(GHL_OAUTH_LOCATION_TOKEN_URL, {
     method: "POST",
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
       Version: GHL_VERSION,
       Authorization: `Bearer ${params.agencyAccessToken}`,
     },
-    body: JSON.stringify({ companyId: params.companyId, locationId: params.locationId }),
+    body,
   });
 
   const text = await res.text();

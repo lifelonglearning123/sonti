@@ -263,7 +263,7 @@ export default function SuperAdminPage() {
                   Disconnect OAuth
                 </Button>
               ) : (
-                <Button size="sm" onClick={() => (window.location.href = "/api/ghl/oauth/start")}>
+                <Button size="sm" onClick={() => (window.location.href = "/api/oauth/start")}>
                   <PlugZap className="h-4 w-4 mr-1.5" />
                   Connect via OAuth
                 </Button>
