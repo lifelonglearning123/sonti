@@ -81,8 +81,8 @@ export function Topbar() {
           {title}
         </h1>
 
-        {/* Location switcher */}
-        {locations.length > 0 && (
+        {/* Location switcher (only when the workspace spans multiple locations) */}
+        {locations.length > 1 && (
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2 h-9 max-w-[220px] rounded-lg border border-[var(--border-primary)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] focus:outline-none">
               <Building2 className="h-4 w-4 text-[var(--text-tertiary)] shrink-0" />

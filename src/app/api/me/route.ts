@@ -27,10 +27,19 @@ export async function GET() {
       ctx.organizationId,
       ctx.membershipLocationId
     );
-    hasGhlConnection = !!(await prisma.ghlConnection.findUnique({
-      where: { organizationId: ctx.organizationId },
-      select: { id: true },
-    }));
+    // The active sub-account is "connected" when its location PIT is set.
+    if (activeLocationId) {
+      const loc = await prisma.orgLocation.findUnique({
+        where: {
+          organizationId_ghlLocationId: {
+            organizationId: ctx.organizationId,
+            ghlLocationId: activeLocationId,
+          },
+        },
+        select: { apiToken: true },
+      });
+      hasGhlConnection = !!loc?.apiToken;
+    }
   }
 
   return Response.json({

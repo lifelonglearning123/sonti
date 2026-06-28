@@ -37,9 +37,23 @@ model Organization {
   updatedAt    DateTime @updatedAt
 
   memberships    Membership[]
-  ghlConnection  GhlConnection?
   locations      OrgLocation[]
   locationTokens GhlLocationToken[]
+}
+
+/// Single platform-wide GHL agency OAuth connection (one row, id = "singleton").
+/// Optional alternative to the env agency PIT. When present, per-sub-account
+/// location tokens are minted from it on demand. Tokens encrypted at rest.
+model AgencyConnection {
+  id           String   @id @default("singleton")
+  companyId    String
+  agencyName   String?
+  accessToken  String
+  refreshToken String
+  scope        String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 /// 1:1 with Supabase auth.users. `id` == auth.users.id (the JWT `sub`).
@@ -72,28 +86,16 @@ model Membership {
   @@index([organizationId])
 }
 
-/// Per-org GHL agency OAuth connection. Tokens stored encrypted at rest.
-model GhlConnection {
-  id             String   @id @default(uuid())
-  organizationId String   @unique
-  companyId      String
-  agencyName     String?
-  accessToken    String
-  refreshToken   String
-  scope          String?
-  expiresAt      DateTime
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-}
-
 /// A GHL sub-account (location) that belongs to an organization.
+/// `apiToken` is that sub-account's own location-level Private Integration Token
+/// (encrypted). When set, it's used directly for the sub-account's CRM data;
+/// otherwise a location token is minted from the agency OAuth connection.
 model OrgLocation {
   id             String   @id @default(uuid())
   organizationId String
   ghlLocationId  String
   name           String?
+  apiToken       String?
   createdAt      DateTime @default(now())
 
   organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -103,7 +105,8 @@ model OrgLocation {
   @@index([organizationId])
 }
 
-/// Per-org cached, minted location access token. Tokens stored encrypted at rest.
+/// Cache of location access tokens MINTED from the agency OAuth connection
+/// (only used in OAuth mode; PIT mode reads OrgLocation.apiToken directly).
 model GhlLocationToken {
   id             String   @id @default(uuid())
   organizationId String

@@ -1,9 +1,16 @@
 # Sonti — Multi-Tenant SaaS Setup
 
-Sonti is now a multi-tenant SaaS: each **Organization** (agency) is an isolated
-tenant with its own members, GHL agency connection, and sub-account locations.
+Sonti is now a multi-tenant SaaS. One GHL **agency** is configured platform-wide
+via an **agency Private Integration Token (PIT)** in env — the super-admin uses it
+to create sub-accounts. Each **Organization** is an isolated tenant bound to one
+GHL **sub-account**, with its own members and its own **location PIT** for CRM data.
 Auth is handled by **Supabase Auth**; data lives in **Supabase Postgres** via
 Prisma; deploy on **Vercel**.
+
+> GHL note: an agency PIT can create/list sub-accounts but **cannot** read a
+> sub-account's CRM data — GHL requires a location-scoped token for that. So each
+> sub-account needs its own location PIT (created in that sub-account's GHL
+> settings) pasted into Sonti.
 
 ## 1. Create a Supabase project
 
@@ -33,9 +40,9 @@ SUPABASE_SERVICE_ROLE_KEY=...
 DATABASE_URL=postgresql://...pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
 DIRECT_URL=postgresql://...pooler.supabase.com:5432/postgres
 
-GHL_OAUTH_CLIENT_ID=...
-GHL_OAUTH_CLIENT_SECRET=...
-GHL_OAUTH_REDIRECT_URI=http://localhost:3001/api/ghl/oauth/callback
+# GHL agency Private Integration Token (creates/lists sub-accounts)
+GHL_AGENCY_API_TOKEN=pit-...
+GHL_COMPANY_ID=<agency/company id>
 
 SUPERADMIN_EMAIL=you@example.com
 SUPERADMIN_PASSWORD=<strong password>
@@ -61,15 +68,30 @@ npm run dev          # http://localhost:3001
 ## 5. Onboarding flow
 
 1. Sign in at `/login` with the super-admin credentials.
-2. Open **`/superadmin`** → create an Organization and enter the owner's email.
-   The owner receives an invite email to set their password.
-3. The owner signs in, opens **`/admin`**, and connects their GHL agency
-   (OAuth, or a private integration token). Sub-accounts sync into the
-   workspace automatically.
-4. The owner invites members (by email) under **Members**, optionally scoping
-   each to a location.
-5. Members sign in and use the CRM. The **location switcher** in the top bar
-   chooses which sub-account they're viewing.
+2. Connect the agency — pick **either** method (both can be set; OAuth wins):
+   - **PIT:** set `GHL_AGENCY_API_TOKEN` + `GHL_COMPANY_ID` in `.env.local`.
+   - **OAuth:** set `GHL_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI`, then in `/superadmin`
+     click **Connect via OAuth**.
+
+   `/superadmin` shows status for both methods and the active one.
+3. In `/superadmin` → **New organization**. This:
+   - creates a new **GHL sub-account** under the agency,
+   - creates a workspace (Organization) bound to that sub-account,
+   - invites the **owner/admin** by email (they set a password via the link),
+   - optionally accepts that sub-account's **location PIT**.
+4. Enable the sub-account's **CRM data**:
+   - **OAuth mode:** nothing to do — a location token is minted automatically.
+   - **PIT mode:** create a Private Integration *inside* that sub-account in GHL
+     (**Settings → Private Integrations**), copy the token, and paste it at
+     org-creation (step 3) or later via **`/admin`** → **GHL sub-account** card.
+5. The owner opens **`/admin`** → **Members** to invite teammates by email. Every
+   member is scoped to that workspace's sub-account.
+6. Members sign in and use the CRM (dashboard, contacts, conversations, pipeline,
+   calendar) for their sub-account.
+
+> Each organization maps to exactly one GHL sub-account. Per sub-account, a pasted
+> location PIT is used if present; otherwise a token is minted from the agency
+> OAuth connection.
 
 ## Deploying to Vercel
 
@@ -81,6 +103,8 @@ npm run dev          # http://localhost:3001
 ## Tenant isolation
 
 - Every GHL request resolves the org server-side from the session (Supabase) and
-  validates the target location against the org's own `OrgLocation` rows before a
-  token is minted. Client-supplied location IDs are never trusted.
-- GHL access/refresh tokens are encrypted at rest with `TOKEN_ENCRYPTION_KEY`.
+  validates the target location against the org's own `OrgLocation` rows before its
+  location PIT is used. Client-supplied location IDs are never trusted.
+- The agency PIT (env) is used only for agency-level operations (create/list
+  sub-accounts) and never exposed to tenants.
+- Location PITs are encrypted at rest with `TOKEN_ENCRYPTION_KEY`.

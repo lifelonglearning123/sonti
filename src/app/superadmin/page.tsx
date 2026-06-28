@@ -7,6 +7,8 @@ import {
   useCreateOrganization,
   useUpdateOrganization,
   useDeleteOrganization,
+  useAgencyStatus,
+  useDisconnectAgency,
   type SuperAdminOrg,
 } from "@/hooks/use-superadmin";
 import { useMe } from "@/hooks/use-me";
@@ -33,6 +35,7 @@ import {
   Pause,
   Play,
   Trash2,
+  Check,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { cn } from "@/lib/utils";
@@ -51,6 +54,8 @@ export default function SuperAdminPage() {
   const router = useRouter();
   const { data: me, isLoading: meLoading } = useMe();
   const { data, isLoading } = useOrganizations();
+  const { data: agency } = useAgencyStatus();
+  const disconnectAgency = useDisconnectAgency();
   const createOrg = useCreateOrganization();
   const updateOrg = useUpdateOrganization();
   const deleteOrg = useDeleteOrganization();
@@ -61,6 +66,7 @@ export default function SuperAdminPage() {
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [plan, setPlan] = useState<(typeof PLANS)[number]>("free");
+  const [locationApiToken, setLocationApiToken] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<SuperAdminOrg | null>(null);
 
   const handleSignOut = async () => {
@@ -82,6 +88,7 @@ export default function SuperAdminPage() {
         ownerEmail: ownerEmail.trim(),
         ownerName: ownerName.trim() || undefined,
         plan,
+        locationApiToken: locationApiToken.trim() || undefined,
       });
       toast.success("Organization created — owner invited by email");
       setName("");
@@ -89,6 +96,7 @@ export default function SuperAdminPage() {
       setOwnerEmail("");
       setOwnerName("");
       setPlan("free");
+      setLocationApiToken("");
       setDialogOpen(false);
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -174,14 +182,97 @@ export default function SuperAdminPage() {
       </header>
 
       <div className="max-w-6xl mx-auto p-6 space-y-6">
+        {/* Agency connection — OAuth and/or env PIT */}
+        <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-card)] p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className={cn(
+                  "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
+                  agency?.connected
+                    ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                    : "bg-[var(--bg-secondary)] text-[var(--text-tertiary)]"
+                )}
+              >
+                {agency?.connected ? <Check className="h-5 w-5" /> : <PlugZap className="h-5 w-5" />}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-[var(--text-primary)]">
+                  {agency?.connected ? "GHL agency connected" : "GHL agency not connected"}
+                  {agency?.activeMethod && (
+                    <span className="ml-2 align-middle text-[10px] font-medium uppercase tracking-wide text-[var(--text-tertiary)] border border-[var(--border-primary)] rounded px-1.5 py-0.5">
+                      {agency.activeMethod === "oauth" ? "OAuth" : "env PIT"}
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-[var(--text-tertiary)] truncate">
+                  {agency?.connected
+                    ? `${agency.agencyName ? agency.agencyName + " — " : ""}${agency.subAccountCount ?? 0} sub-account${agency.subAccountCount === 1 ? "" : "s"} visible`
+                    : "Connect via OAuth, or set GHL_AGENCY_API_TOKEN + GHL_COMPANY_ID in env."}
+                </p>
+                <div className="mt-1.5 flex items-center gap-3 text-[11px] text-[var(--text-tertiary)]">
+                  <span className="flex items-center gap-1">
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        agency?.oauthConnected ? "bg-green-500" : "bg-[var(--border-primary)]"
+                      )}
+                    />
+                    OAuth
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        agency?.pitConfigured ? "bg-green-500" : "bg-[var(--border-primary)]"
+                      )}
+                    />
+                    env PIT
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {agency?.oauthConnected ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await disconnectAgency.mutateAsync();
+                      toast.success("OAuth disconnected");
+                    } catch (err) {
+                      toast.error(getErrorMessage(err));
+                    }
+                  }}
+                  disabled={disconnectAgency.isPending}
+                >
+                  {disconnectAgency.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+                  Disconnect OAuth
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => (window.location.href = "/api/ghl/oauth/start")}>
+                  <PlugZap className="h-4 w-4 mr-1.5" />
+                  Connect via OAuth
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-[var(--text-primary)]">Organizations</h2>
             <p className="text-sm text-[var(--text-secondary)]">
-              Provision agencies and manage their plans and access.
+              Each organization is a GHL sub-account with its own admin.
             </p>
           </div>
-          <Button onClick={() => setDialogOpen(true)} size="sm">
+          <Button
+            onClick={() => setDialogOpen(true)}
+            size="sm"
+            disabled={!agency?.connected}
+            title={agency?.connected ? undefined : "Connect the agency first"}
+          >
             <Plus className="h-4 w-4 mr-1.5" />
             New organization
           </Button>
@@ -233,23 +324,14 @@ export default function SuperAdminPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-4 text-xs text-[var(--text-secondary)]">
-                  <span className="flex items-center gap-1">
+                <div className="flex items-center gap-4 text-xs text-[var(--text-secondary)] min-w-0">
+                  <span className="flex items-center gap-1 shrink-0">
                     <Users className="h-3.5 w-3.5" />
                     {org.memberCount}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" />
-                    {org.locationCount}
-                  </span>
-                  <span
-                    className={cn(
-                      "flex items-center gap-1",
-                      org.ghlConnected ? "text-green-600 dark:text-green-400" : ""
-                    )}
-                  >
-                    <PlugZap className="h-3.5 w-3.5" />
-                    {org.ghlConnected ? "GHL" : "No GHL"}
+                  <span className="flex items-center gap-1 min-w-0">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{org.locationName || "—"}</span>
                   </span>
                 </div>
 
@@ -371,6 +453,20 @@ export default function SuperAdminPage() {
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Sub-account API token (optional)</Label>
+              <Input
+                value={locationApiToken}
+                onChange={(e) => setLocationApiToken(e.target.value)}
+                placeholder="pit-xxxxx…"
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-[var(--text-tertiary)]">
+                The new sub-account's own Private Integration token (enables CRM data).
+                Leave blank if the agency is connected via OAuth, or add it later from
+                the workspace admin.
+              </p>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

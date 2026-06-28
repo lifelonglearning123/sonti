@@ -6,12 +6,14 @@ function appBaseUrl(): string {
   return (process.env.NEXTAUTH_URL || "").replace(/\/$/, "");
 }
 
-async function locationInOrg(organizationId: string, ghlLocationId: string) {
-  const row = await prisma.orgLocation.findUnique({
-    where: { organizationId_ghlLocationId: { organizationId, ghlLocationId } },
-    select: { id: true },
+/** The org's sub-account location (each org is bound to exactly one). */
+async function orgLocationId(organizationId: string): Promise<string | null> {
+  const row = await prisma.orgLocation.findFirst({
+    where: { organizationId },
+    orderBy: { createdAt: "asc" },
+    select: { ghlLocationId: true },
   });
-  return !!row;
+  return row?.ghlLocationId ?? null;
 }
 
 // List members of the caller's organization.
@@ -46,12 +48,11 @@ export async function POST(req: Request) {
   const email: string = (body?.email || "").trim().toLowerCase();
   const fullName: string | null = body?.fullName || null;
   const orgRole = body?.role === "admin" ? "admin" : "member";
-  const ghlLocationId: string | null = body?.ghlLocationId || null;
 
   if (!email) return Response.json({ error: "Email is required" }, { status: 400 });
-  if (ghlLocationId && !(await locationInOrg(ctx.organizationId, ghlLocationId))) {
-    return Response.json({ error: "Location is not in your workspace" }, { status: 400 });
-  }
+
+  // Members are automatically scoped to the org's single sub-account location.
+  const ghlLocationId = await orgLocationId(ctx.organizationId);
 
   const admin = createSupabaseAdminClient();
 

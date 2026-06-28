@@ -1,10 +1,11 @@
-import { getOrgAdminContext } from "@/lib/dal";
+import { getSuperAdminContext } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { encryptSecret } from "@/lib/crypto";
 import { ghlExchangeAuthorizationCode, getGhlOAuthRedirectUri } from "@/lib/ghl";
 import { NextRequest, NextResponse } from "next/server";
 
 const GHL_BASE_URL = "https://services.leadconnectorhq.com";
+const AGENCY_ID = "singleton";
 
 async function hydrateAgencyInfo(
   accessToken: string,
@@ -37,19 +38,17 @@ async function hydrateAgencyInfo(
 }
 
 export async function GET(req: NextRequest) {
-  const ctx = await getOrgAdminContext();
-  if (!ctx?.organizationId) {
-    return NextResponse.redirect(new URL("/admin?error=Forbidden", req.url));
+  const ctx = await getSuperAdminContext();
+  if (!ctx) {
+    return NextResponse.redirect(new URL("/superadmin?error=Forbidden", req.url));
   }
 
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
   const expectedState = req.cookies.get("ghl_oauth_state")?.value;
-  const returnTo = req.cookies.get("ghl_oauth_return_to")?.value || "/admin";
+  const returnTo = req.cookies.get("ghl_oauth_return_to")?.value || "/superadmin";
 
-  if (!code) {
-    return NextResponse.redirect(new URL(`${returnTo}?error=NoCode`, req.url));
-  }
+  if (!code) return NextResponse.redirect(new URL(`${returnTo}?error=NoCode`, req.url));
   if (!state || !expectedState || state !== expectedState) {
     return NextResponse.redirect(new URL(`${returnTo}?error=InvalidState`, req.url));
   }
@@ -64,10 +63,10 @@ export async function GET(req: NextRequest) {
     const expiresAt = new Date(Date.now() + (token.expires_in || 0) * 1000);
     const info = await hydrateAgencyInfo(token.access_token, token.companyId || "");
 
-    await prisma.ghlConnection.upsert({
-      where: { organizationId: ctx.organizationId },
+    await prisma.agencyConnection.upsert({
+      where: { id: AGENCY_ID },
       create: {
-        organizationId: ctx.organizationId,
+        id: AGENCY_ID,
         companyId: info.companyId || token.companyId || "auto",
         agencyName: info.agencyName,
         accessToken: encryptSecret(token.access_token),

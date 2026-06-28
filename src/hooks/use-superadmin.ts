@@ -9,10 +9,20 @@ export interface SuperAdminOrg {
   plan: "free" | "starter" | "pro";
   isActive: boolean;
   memberCount: number;
-  locationCount: number;
-  ghlConnected: boolean;
+  locationName: string | null;
+  ghlLocationId: string | null;
   ownerEmail: string | null;
   createdAt: string;
+}
+
+export interface AgencyStatus {
+  connected: boolean;
+  oauthConnected: boolean;
+  pitConfigured: boolean;
+  activeMethod: "oauth" | "pit" | null;
+  agencyName: string | null;
+  companyId: string | null;
+  subAccountCount: number | null;
 }
 
 async function saFetch(path: string, options?: RequestInit) {
@@ -25,6 +35,21 @@ async function saFetch(path: string, options?: RequestInit) {
     throw new Error(err.error || `Error ${res.status}`);
   }
   return res.json();
+}
+
+export function useAgencyStatus() {
+  return useQuery<AgencyStatus>({
+    queryKey: ["superadmin-agency"],
+    queryFn: () => saFetch("agency"),
+  });
+}
+
+export function useDisconnectAgency() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => saFetch("agency", { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["superadmin-agency"] }),
+  });
 }
 
 export function useOrganizations() {
@@ -43,6 +68,10 @@ export function useCreateOrganization() {
       ownerEmail: string;
       ownerName?: string;
       plan?: "free" | "starter" | "pro";
+      subAccountName?: string;
+      subAccountEmail?: string;
+      subAccountPhone?: string;
+      locationApiToken?: string;
     }) => saFetch("organizations", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["superadmin-orgs"] }),
   });

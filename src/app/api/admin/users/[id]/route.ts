@@ -3,15 +3,7 @@ import { getOrgAdminContext } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-async function locationInOrg(organizationId: string, ghlLocationId: string) {
-  const row = await prisma.orgLocation.findUnique({
-    where: { organizationId_ghlLocationId: { organizationId, ghlLocationId } },
-    select: { id: true },
-  });
-  return !!row;
-}
-
-// Update a member's role, assigned location, name, or password.
+// Update a member's role, name, or password.
 export async function PUT(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
   const ctx = await getOrgAdminContext();
   if (!ctx?.organizationId) return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -31,15 +23,8 @@ export async function PUT(req: NextRequest, ctxArg: { params: Promise<{ id: stri
     return Response.json({ error: "Cannot change the owner's role" }, { status: 400 });
   }
 
-  const membershipData: { role?: "admin" | "member"; ghlLocationId?: string | null } = {};
+  const membershipData: { role?: "admin" | "member" } = {};
   if (body.role === "admin" || body.role === "member") membershipData.role = body.role;
-  if (body.ghlLocationId !== undefined) {
-    const loc = body.ghlLocationId || null;
-    if (loc && !(await locationInOrg(ctx.organizationId, loc))) {
-      return Response.json({ error: "Location is not in your workspace" }, { status: 400 });
-    }
-    membershipData.ghlLocationId = loc;
-  }
   if (Object.keys(membershipData).length > 0) {
     await prisma.membership.update({ where: { id: membership.id }, data: membershipData });
   }

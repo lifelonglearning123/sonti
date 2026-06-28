@@ -1,4 +1,7 @@
-import "dotenv/config";
+import { config } from "dotenv";
+// Load .env.local first (takes precedence), then .env as fallback.
+config({ path: ".env.local" });
+config();
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createClient } from "@supabase/supabase-js";

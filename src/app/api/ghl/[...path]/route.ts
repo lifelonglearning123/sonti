@@ -58,12 +58,15 @@ async function proxyToGHL(req: NextRequest) {
     );
   }
 
-  let accessToken: string;
-  try {
-    accessToken = await getLocationAccessToken(organizationId, locationId);
-  } catch {
+  const accessToken = await getLocationAccessToken(organizationId, locationId).catch(
+    () => null
+  );
+  if (!accessToken) {
     return Response.json(
-      { error: "GHL is not connected for this workspace" },
+      {
+        error:
+          "This sub-account isn't connected to GHL. Add its API token, or connect the agency via OAuth.",
+      },
       { status: 400 }
     );
   }
@@ -100,6 +103,8 @@ async function proxyToGHL(req: NextRequest) {
   try {
     let response = await fetch(url.toString(), fetchOptions);
 
+    // A minted (OAuth) token may have gone stale — refresh once and retry.
+    // (No-op for pasted location PITs, which can't be refreshed.)
     if (response.status === 401) {
       const refreshed = await forceRefreshLocationToken(
         organizationId,
@@ -117,7 +122,6 @@ async function proxyToGHL(req: NextRequest) {
         `[GHL Proxy] ${req.method} ${url.pathname} -> ${response.status}: ${data.substring(0, 300)}`
       );
     }
-
     return new Response(data, {
       status: response.status,
       headers: {

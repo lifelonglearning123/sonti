@@ -1,6 +1,12 @@
 import { getSuperAdminContext } from "@/lib/dal";
 import { prisma } from "@/lib/db";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { encryptSecret } from "@/lib/crypto";
+import {
+  createAgencySubAccount,
+  isAgencyConnected,
+  verifyLocationToken,
+} from "@/lib/ghl-tokens";
 import type { PlanTier } from "@prisma/client";
 
 function appBaseUrl(): string {
@@ -25,8 +31,8 @@ export async function GET() {
   const orgs = await prisma.organization.findMany({
     orderBy: { createdAt: "desc" },
     include: {
-      _count: { select: { memberships: true, locations: true } },
-      ghlConnection: { select: { id: true } },
+      _count: { select: { memberships: true } },
+      locations: { take: 1, orderBy: { createdAt: "asc" } },
       memberships: {
         where: { role: "owner" },
         include: { profile: { select: { email: true } } },
@@ -42,8 +48,8 @@ export async function GET() {
     plan: o.plan,
     isActive: o.isActive,
     memberCount: o._count.memberships,
-    locationCount: o._count.locations,
-    ghlConnected: !!o.ghlConnection,
+    locationName: o.locations[0]?.name ?? null,
+    ghlLocationId: o.locations[0]?.ghlLocationId ?? null,
     ownerEmail: o.memberships[0]?.profile.email ?? null,
     createdAt: o.createdAt,
   }));
@@ -51,9 +57,20 @@ export async function GET() {
   return Response.json({ organizations });
 }
 
+/**
+ * Provision a tenant: create a GHL sub-account under the platform agency, then
+ * an Organization bound to it, invite the owner/admin, and register the location.
+ */
 export async function POST(req: Request) {
   const ctx = await getSuperAdminContext();
   if (!ctx) return Response.json({ error: "Forbidden" }, { status: 403 });
+
+  if (!(await isAgencyConnected())) {
+    return Response.json(
+      { error: "Agency is not connected (set GHL_AGENCY_API_TOKEN or connect via OAuth)." },
+      { status: 400 }
+    );
+  }
 
   const body = await req.json();
   const name: string = (body?.name || "").trim();
@@ -61,6 +78,12 @@ export async function POST(req: Request) {
   const ownerName: string | null = body?.ownerName || null;
   const plan: PlanTier = VALID_PLANS.includes(body?.plan) ? body.plan : "free";
   const slug = slugify(body?.slug || name);
+  // Sub-account details (default the business name to the org name).
+  const subName: string = (body?.subAccountName || name).trim();
+  const subEmail: string | undefined = body?.subAccountEmail || ownerEmail || undefined;
+  const subPhone: string | undefined = body?.subAccountPhone || undefined;
+  // Optional: the new sub-account's own location PIT (for CRM data access).
+  const locationApiToken: string = (body?.locationApiToken || "").trim();
 
   if (!name) return Response.json({ error: "Organization name is required" }, { status: 400 });
   if (!ownerEmail) return Response.json({ error: "Owner email is required" }, { status: 400 });
@@ -69,12 +92,35 @@ export async function POST(req: Request) {
   const slugTaken = await prisma.organization.findUnique({ where: { slug } });
   if (slugTaken) return Response.json({ error: "That slug is already taken" }, { status: 409 });
 
+  // 1. Create the GHL sub-account under the agency.
+  let subAccount: { id: string; name: string };
+  try {
+    subAccount = await createAgencySubAccount({
+      name: subName,
+      email: subEmail,
+      phone: subPhone,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to create sub-account";
+    return Response.json({ error: message }, { status: 400 });
+  }
+
+  // Validate the location PIT (if provided) against the new sub-account.
+  if (locationApiToken) {
+    const check = await verifyLocationToken(subAccount.id, locationApiToken);
+    if (!check.valid) {
+      return Response.json(
+        { error: `The sub-account API token is invalid: ${check.error}` },
+        { status: 400 }
+      );
+    }
+  }
+
   const admin = createSupabaseAdminClient();
 
-  // Reuse an existing profile/auth user if the owner already has an account.
+  // 2. Ensure the owner's auth user / profile exists (invite if new).
   let profile = await prisma.profile.findUnique({ where: { email: ownerEmail } });
   let createdAuthUser = false;
-
   if (!profile) {
     const { data, error } = await admin.auth.admin.inviteUserByEmail(ownerEmail, {
       redirectTo: `${appBaseUrl()}/auth/callback?type=invite`,
@@ -92,13 +138,27 @@ export async function POST(req: Request) {
     });
   }
 
+  // 3. Create org + owner membership + bind the sub-account, transactionally.
   try {
     const organization = await prisma.$transaction(async (tx) => {
       const org = await tx.organization.create({
         data: { name, slug, plan, isActive: true },
       });
       await tx.membership.create({
-        data: { profileId: profile!.id, organizationId: org.id, role: "owner" },
+        data: {
+          profileId: profile!.id,
+          organizationId: org.id,
+          role: "owner",
+          ghlLocationId: subAccount.id,
+        },
+      });
+      await tx.orgLocation.create({
+        data: {
+          organizationId: org.id,
+          ghlLocationId: subAccount.id,
+          name: subAccount.name,
+          apiToken: locationApiToken ? encryptSecret(locationApiToken) : null,
+        },
       });
       return org;
     });
@@ -111,12 +171,16 @@ export async function POST(req: Request) {
           slug: organization.slug,
           plan: organization.plan,
           ownerEmail,
+          ghlLocationId: subAccount.id,
+          locationName: subAccount.name,
         },
       },
       { status: 201 }
     );
   } catch (e) {
     // Compensate: the Supabase auth user was created outside the Prisma tx.
+    // (The GHL sub-account is left in place — deleting sub-accounts is destructive
+    // and may not be reversible; it can be reused on retry.)
     if (createdAuthUser && profile) {
       await admin.auth.admin.deleteUser(profile.id).catch(() => {});
       await prisma.profile.delete({ where: { id: profile.id } }).catch(() => {});
