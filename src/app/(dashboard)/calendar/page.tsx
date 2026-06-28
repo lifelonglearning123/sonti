@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useActiveLocationId } from "@/hooks/use-me";
 import { ChevronLeft, ChevronRight, Plus, SlidersHorizontal, CalendarDays, List } from "lucide-react";
 import { useCalendars, useCalendarEvents, useUsers } from "@/hooks/use-calendar";
 import { CalendarGrid } from "@/components/calendar/calendar-grid";
@@ -116,8 +116,7 @@ function MiniCalendar({ currentDate, onDateSelect }: { currentDate: Date; onDate
 }
 
 export default function CalendarPage() {
-  const { data: session } = useSession();
-  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
+  const locationId = useActiveLocationId() || "";
 
   // Page-level state
   const [activeTab, setActiveTab] = useState<PageTab>("calendar");

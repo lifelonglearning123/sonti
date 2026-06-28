@@ -1,147 +1,82 @@
-import { auth } from "@/lib/auth";
-import { userQueries } from "@/lib/db";
-import bcrypt from "bcryptjs";
 import { NextRequest } from "next/server";
+import { getOrgAdminContext } from "@/lib/dal";
+import { prisma } from "@/lib/db";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-const GHL_BASE_URL = "https://services.leadconnectorhq.com";
+// Update a member's role, name, or password.
+export async function PUT(req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
+  const ctx = await getOrgAdminContext();
+  if (!ctx?.organizationId) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-async function verifyGhlToken(locationId: string, token: string): Promise<{ valid: boolean; error?: string }> {
-  try {
-    const res = await fetch(`${GHL_BASE_URL}/locations/${locationId}`, {
-      headers: { Authorization: `Bearer ${token}`, Version: "2021-07-28" },
-    });
-    if (!res.ok) return { valid: false, error: `GHL returned ${res.status}` };
-    return { valid: true };
-  } catch {
-    return { valid: false, error: "Could not reach GHL API" };
-  }
-}
+  const { id: profileId } = await ctxArg.params;
+  const body = await req.json();
 
-async function requireAdmin() {
-  const session = await auth();
-  const role = getSessionRole(session);
-  if (role !== "admin") return null;
-  return session;
-}
-
-function getSessionRole(session: unknown): string | null {
-  if (!session || typeof session !== "object") return null;
-  const s = session as Record<string, unknown>;
-
-  const direct = s["role"];
-  if (typeof direct === "string") return direct;
-
-  const user = s["user"];
-  if (user && typeof user === "object") {
-    const u = user as Record<string, unknown>;
-    const nested = u["role"];
-    if (typeof nested === "string") return nested;
-  }
-
-  return null;
-}
-
-function getSessionLocationId(session: unknown): string | null {
-  if (!session || typeof session !== "object") return null;
-  const s = session as Record<string, unknown>;
-
-  const direct = s["locationId"];
-  if (typeof direct === "string" && direct) return direct;
-
-  const user = s["user"];
-  if (user && typeof user === "object") {
-    const u = user as Record<string, unknown>;
-    const nested = u["locationId"];
-    if (typeof nested === "string" && nested) return nested;
-  }
-
-  return null;
-}
-
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin();
-  if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
-
-  const adminLocationId = getSessionLocationId(session);
-  const { id } = await params;
-  const user = await userQueries.findById(id);
-  if (!user) return Response.json({ error: "User not found" }, { status: 404 });
-  if (adminLocationId && user.ghlLocationId !== adminLocationId) {
-    return Response.json({ error: "User not found" }, { status: 404 });
-  }
-
-  return Response.json({
-    user: {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      ghlLocationId: user.ghlLocationId,
-      ghlAccessToken: user.ghlAccessToken,
-      createdAt: user.createdAt,
+  const membership = await prisma.membership.findUnique({
+    where: {
+      profileId_organizationId: { profileId, organizationId: ctx.organizationId },
     },
   });
+  if (!membership) return Response.json({ error: "Member not found" }, { status: 404 });
+
+  // The owner role can't be reassigned here.
+  if (membership.role === "owner" && body.role && body.role !== "owner") {
+    return Response.json({ error: "Cannot change the owner's role" }, { status: 400 });
+  }
+
+  const membershipData: { role?: "admin" | "member" } = {};
+  if (body.role === "admin" || body.role === "member") membershipData.role = body.role;
+  if (Object.keys(membershipData).length > 0) {
+    await prisma.membership.update({ where: { id: membership.id }, data: membershipData });
+  }
+
+  if (typeof body.fullName === "string") {
+    await prisma.profile.update({ where: { id: profileId }, data: { fullName: body.fullName } });
+  }
+
+  if (typeof body.password === "string" && body.password) {
+    const admin = createSupabaseAdminClient();
+    const { error } = await admin.auth.admin.updateUserById(profileId, {
+      password: body.password,
+    });
+    if (error) return Response.json({ error: error.message }, { status: 400 });
+  }
+
+  return Response.json({ user: { id: profileId } });
 }
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin();
-  if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
+// Remove a member from the organization (deletes the account if no orgs remain).
+export async function DELETE(_req: NextRequest, ctxArg: { params: Promise<{ id: string }> }) {
+  const ctx = await getOrgAdminContext();
+  if (!ctx?.organizationId) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const adminLocationId = getSessionLocationId(session);
-  const { id } = await params;
-  const body = await req.json();
-  const data: Record<string, unknown> = {};
+  const { id: profileId } = await ctxArg.params;
 
-  if (body.username) data.username = body.username;
-  if (body.password) data.passwordHash = await bcrypt.hash(body.password, 10);
-  if (body.role) data.role = body.role;
-  if (body.ghlLocationId !== undefined) data.ghlLocationId = body.ghlLocationId || null;
-  if (body.ghlAccessToken !== undefined) data.ghlAccessToken = body.ghlAccessToken || null;
+  const membership = await prisma.membership.findUnique({
+    where: {
+      profileId_organizationId: { profileId, organizationId: ctx.organizationId },
+    },
+  });
+  if (!membership) return Response.json({ error: "Member not found" }, { status: 404 });
 
-  const existingUser = await userQueries.findById(id);
-  if (!existingUser) return Response.json({ error: "User not found" }, { status: 404 });
-  if (adminLocationId && existingUser.ghlLocationId !== adminLocationId) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (membership.role === "owner") {
+    return Response.json({ error: "Cannot remove the workspace owner" }, { status: 400 });
+  }
+  if (profileId === ctx.userId) {
+    return Response.json({ error: "You cannot remove yourself" }, { status: 400 });
   }
 
-  if (adminLocationId && body.ghlLocationId !== undefined && body.ghlLocationId !== adminLocationId) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+  await prisma.membership.delete({ where: { id: membership.id } });
+
+  // Fully delete the account if it no longer belongs to any org and isn't a super-admin.
+  const profile = await prisma.profile.findUnique({
+    where: { id: profileId },
+    include: { memberships: true },
+  });
+  if (profile && profile.memberships.length === 0 && profile.platformRole !== "superadmin") {
+    const admin = createSupabaseAdminClient();
+    await admin.auth.admin.deleteUser(profileId).catch(() => {});
+    await prisma.profile.delete({ where: { id: profileId } }).catch(() => {});
   }
 
-  // Verify GHL credentials if both are provided
-  const locId = (data.ghlLocationId as string) || existingUser.ghlLocationId;
-  const token =
-    (data.ghlAccessToken as string) ||
-    (body.ghlAccessToken === undefined ? existingUser.ghlAccessToken : null);
-  if (locId && token && (body.ghlLocationId || body.ghlAccessToken)) {
-    const check = await verifyGhlToken(locId, token);
-    if (!check.valid) {
-      return Response.json({ error: `Invalid GHL credentials: ${check.error}` }, { status: 400 });
-    }
-  }
-
-  const user = await userQueries.update(id, data);
-  return Response.json({ user: { id: user.id, username: user.username, role: user.role } });
-}
-
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin();
-  if (!session) return Response.json({ error: "Forbidden" }, { status: 403 });
-
-  const adminLocationId = getSessionLocationId(session);
-  const { id } = await params;
-  const user = await userQueries.findById(id);
-  if (!user) return Response.json({ error: "User not found" }, { status: 404 });
-  if (adminLocationId && user.ghlLocationId !== adminLocationId) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const adminCount = adminLocationId
-    ? await userQueries.countByRoleAndLocationId("admin", adminLocationId)
-    : await userQueries.countByRole("admin");
-  if (user?.role === "admin" && adminCount <= 1) {
-    return Response.json({ error: "Cannot delete the last admin user" }, { status: 400 });
-  }
-
-  await userQueries.delete(id);
   return Response.json({ success: true });
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useActiveLocationId } from "@/hooks/use-me";
 import { ArrowLeft, Trash2, Mail, Phone, Calendar, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useOpportunity, usePipelines, useUpdateOpportunity, useDeleteOpportunity } from "@/hooks/use-opportunities";
@@ -22,8 +22,7 @@ import { formatCurrency, formatDate, getInitials, cn } from "@/lib/utils";
 export default function OpportunityDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { data: session } = useSession();
-  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
+  const locationId = useActiveLocationId() || "";
   const oppId = params.id as string;
 
   const { data: oppData, isLoading: oppLoading } = useOpportunity(oppId);

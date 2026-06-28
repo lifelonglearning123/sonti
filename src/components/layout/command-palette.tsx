@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import {
   Users,
   MessageSquare,
@@ -39,7 +38,6 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const { data: session } = useSession();
   const { resolvedTheme, toggleTheme } = useTheme();
 
   const navigate = useCallback(

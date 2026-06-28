@@ -136,19 +136,11 @@ export function MessageThread({ conversation, messages, isLoading, onBack, onTog
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-
-  if (!conversation) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500">
-        <MessageSquare className="h-12 w-12 mb-3 text-gray-300 dark:text-gray-600" />
-        <p className="text-sm">Select a conversation to view messages</p>
-      </div>
-    );
-  }
-
-  const contactName = conversation.fullName || conversation.contactName || conversation.email || "Unknown";
+  const contactId = conversation?.contactId ?? "";
+  const contactName = conversation?.fullName || conversation?.contactName || conversation?.email || "Unknown";
 
   const handleSend = async () => {
+    if (!conversation) return;
     if (!newMessage.trim()) return;
     if (activeChannel === "Email" && !emailSubject.trim()) return;
     try {
@@ -210,13 +202,22 @@ export function MessageThread({ conversation, messages, isLoading, onBack, onTog
 
   // Simulate random online/offline
   const isOnline = useMemo(() => {
-    if (!conversation.contactId) return false;
+    if (!contactId) return false;
     let hash = 0;
-    for (let i = 0; i < conversation.contactId.length; i++) {
-      hash = conversation.contactId.charCodeAt(i) + ((hash << 5) - hash);
+    for (let i = 0; i < contactId.length; i++) {
+      hash = contactId.charCodeAt(i) + ((hash << 5) - hash);
     }
     return Math.abs(hash) % 3 === 0;
-  }, [conversation.contactId]);
+  }, [contactId]);
+
+  if (!conversation) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500">
+        <MessageSquare className="h-12 w-12 mb-3 text-gray-300 dark:text-gray-600" />
+        <p className="text-sm">Select a conversation to view messages</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useActiveLocationId } from "@/hooks/use-me";
 import { useContact } from "@/hooks/use-contacts";
 import { useCalendars } from "@/hooks/use-calendar";
 import { ContactInfoPanel } from "@/components/contacts/contact-info-panel";
@@ -13,9 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ContactDetailPage() {
   const params = useParams();
-  const { data: session } = useSession();
   const contactId = params.id as string;
-  const locationId = (session as any)?.locationId || (session as any)?.user?.locationId || "";
+  const locationId = useActiveLocationId() || "";
   const { data, isLoading } = useContact(contactId);
   const contact = data?.contact;
   const [showBooking, setShowBooking] = useState(false);

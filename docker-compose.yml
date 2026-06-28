@@ -15,7 +15,7 @@ services:
       - .env
   nginx:
     image: nginx:alpine
-    container_name: portal-macaws-ai-nginx
+    container_name: portal-leonardopower-com-nginx
     restart: always
     ports:
       - "80:80"  # Expose Nginx on port 80
